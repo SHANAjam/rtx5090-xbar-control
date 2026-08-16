@@ -1,0 +1,2 @@
+# xbar5090 uses only the Python standard library on Windows.
+# CUDA toolkit is required only for the optional L2 checker.

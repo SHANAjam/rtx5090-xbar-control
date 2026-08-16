@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xbar5090"
+version = "0.1.0"
+description = "Windows runtime control for NVIDIA RTX 5090 XBAR clock/MSVDD/propagation ratio and V/F points via private NvAPI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "DSH/DeepSeek harness" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+xbar5090 = "xbar5090.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
