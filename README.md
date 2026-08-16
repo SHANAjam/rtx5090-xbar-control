@@ -84,6 +84,16 @@ This project was tested together with **mVolt+ v0.32**. mVolt+ is used to:
 This project does **not** replace mVolt+; it adds additional XBAR/ratio/VF
 controls on top. Official mVolt+ repository: https://github.com/b00nz/mVolt
 
+## Observation tips
+
+- **HWiNFO64**: you can view MSVDD and XBAR directly, or enable shared memory
+  so an AI agent can read them for you.
+- **mVolt+ boost button**: clicking the boost button (top-right) under low
+  load raises the XBAR frequency, making it easy to view the maximum
+  frequency.
+- **Auto-start**: this project does **not** implement auto-start at boot.
+  If you need it, ask an AI assistant for help or contact the author.
+
 ## Driver version
 
 Validated driver version: **610.62** on Windows.
@@ -100,6 +110,16 @@ specific. If you use a different driver:
   plausible values.
 - If values are zero or the command returns an error, **do not write**.
 - Re-verify the layouts for your driver before using write commands.
+
+## References
+
+- Overclocking tutorials (Bilibili; see video content, description, and comments):
+  - https://www.bilibili.com/video/BV1e8gV6xEZC
+  - https://www.bilibili.com/video/BV1NQbk66EBL
+  - https://www.bilibili.com/video/BV12egT6bEqM
+- mVolt+: https://github.com/b00nz/mVolt/
+- Overclock.net RTX 5090 Owners Club:
+  https://www.overclock.net/threads/official-nvidia-rtx-5090-owners-club.1814246/page-1974#replies
 
 ## License
 

@@ -8,10 +8,6 @@
 
 > **警告**：本项目会修改 GPU 时钟/电压状态，使用风险自负。每次写操作前请备份，写后请读回校验。
 
-## 目标
-
-在 Windows 上把 RTX 5090 物理可达到的 XBAR 频率从默认约 2885 MHz 提高到约 2970 MHz（稳定），通过 XBAR 偏移、MSVDD 偏移、传播比和 V/F 点调整的组合实现。
-
 ## 包含内容
 
 - 私有 NvAPI 工具：
@@ -28,9 +24,7 @@
 - 逆向出 Windows 私有 NvAPI 接口：XBAR/MSVDD、传播比、V/F 点、PERF limits。
 - 写了小型 CLI 来读写这些控制项。
 - 使用 **mVolt+ v0.32** 在 RTX 5090 / 驱动 610.62 上测试。
-- A/B 测试后找到稳定游戏配置：
-  `XBAR +235 MHz / MSVDD +10 mV / ratio 1.2 / VF 225..245 +88 MHz`
-  → 物理 XBAR 约 2970 MHz 稳定（3000 MHz 不稳定）。
+- A/B 测试后找到稳定配置（见 [TESTING.md](TESTING.md)）。
 - 确认传播比只有在 V/F 和电压配合时才生效。
 - 确认验证过的 Windows 驱动未暴露 PERF limits SET。
 - AI 协助完成，可能有错误。
@@ -79,6 +73,12 @@ python run.py vfp-set-range --start 225 --end 245 --freq-khz 88000
 
 本项目**不替代 mVolt+**，而是在其之上增加额外的 XBAR/传播比/VF 控制。mVolt+ 官方仓库：https://github.com/b00nz/mVolt
 
+## 观察说明
+
+- **HWiNFO64**：可以直接查看 MSVDD 和 XBAR，也可以勾选“内存共享”，让 AI agent 帮你读取。
+- **mVolt+ 右上角 boost 按钮**：低负载下点击会提升 XBAR 频率，方便查看最大频率。
+- **开机自启**：本项目目前**没有实现开机自启**。如果需要，请让 AI 协助，或联系作者（我）。
+
 ## 驱动版本
 
 验证过的驱动版本：**610.62**（Windows）。
@@ -94,16 +94,15 @@ python run.py vfp-set-range --start 225 --end 245 --freq-khz 88000
 - 如果值为 0 或报错，**不要写**。
 - 使用写命令前，请针对你的驱动重新验证布局。
 
-## 找到的稳定配置
+## 参考链接
 
-```text
-XBAR +235 MHz
-MSVDD +10 mV
-传播比 1.2
-V/F flats 225..245 +88 MHz
-```
-
-物理 XBAR：游戏内约 2970 MHz 稳定。
+- 超频教学视频（B 站；详见视频内容、简介和评论区）：
+  - https://www.bilibili.com/video/BV1e8gV6xEZC
+  - https://www.bilibili.com/video/BV1NQbk66EBL
+  - https://www.bilibili.com/video/BV12egT6bEqM
+- mVolt+：https://github.com/b00nz/mVolt/
+- Overclock.net RTX 5090 Owners Club：
+  https://www.overclock.net/threads/official-nvidia-rtx-5090-owners-club.1814246/page-1974#replies
 
 ## License
 

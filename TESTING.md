@@ -27,6 +27,38 @@
 | GPU-Z Render Test | lightweight render load |
 | Game load | 4K RT DLAA (the user's real workload) |
 
+## Author's overclocking journey
+
+1. Started by overclocking the **core** and **memory**.
+2. Found the Bilibili videos, downloaded **mVolt+**.
+3. Used mVolt+ to adjust **NVVDD**, **MSVDD**, and **XBAR**.
+4. Observed the following before this tool:
+   - Core: ~3090 MHz @ ~1.01 V
+   - XBAR: capped around ~2885 MHz
+   - MSVDD: target 1.15 V, but it dropped when XBAR offset was raised
+   - Memory: 34 Gbps (locked)
+   - TSE: core curve ~27000, +800 W power ~28500, +205 XBAR ~29600
+5. Observed the **MSVDD inversion**: higher XBAR offset caused MSVDD to drop
+   (e.g. +205 -> ~1126 mV, +300 -> ~1086 mV, +450 -> ~1031 mV), and XBAR
+   stayed bottlenecked around ~2882 MHz.
+6. Found the community warning (original Chinese):
+
+   > 单16pin的夜神锁800w功耗，2975的稳定xbar，3k会l2-核心存在数据错误，小心点别太搞，太高的电压有问题，以及注意核心频率和xbar有一个默认的0.9的传播轨，3kxbar理论上要3330核心。可以改 https://github.com/ilya-zlobintsev/LACT/issues/1147 详细的看这个。传播比例可以改，以及小心sys和mclk因为电压太高导致的不稳定。
+
+7. Read the related LACT issues/PRs (#1147, #3, #1158, #1159) and wrote this
+   tool with AI assistance.
+8. Test standard:
+   - Data-error detection from the branch descriptions (L2 integrity).
+   - High-load game test (recommended: 4K 异环).
+   - Observe XBAR and MSVDD in the background to judge whether the tool is
+     effective.
+   - Then run game stability tests.
+9. After using this tool:
+   - XBAR +235 MHz, MSVDD +10 mV, ratio 1.2, VF 225..245 +88 MHz
+   - Physical XBAR ~2970 MHz stable in game
+   - MSVDD stable at ~1.15 V
+   - 3000 MHz was unstable and crashed in game.
+
 ## Key results
 
 ### mVolt+ built-in boost test (XBAR +235 fixed)
