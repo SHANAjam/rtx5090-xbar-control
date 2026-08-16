@@ -12,12 +12,6 @@
 > **WARNING**: This modifies GPU clock/voltage state. Use at your own risk.
 > Always back up and verify readback after every write.
 
-## Goal
-
-Raise the physically achievable XBAR clock of an RTX 5090 from the stock
-~2885 MHz to ~2970 MHz (stable) on Windows, using a combination of XBAR
-offset, MSVDD offset, propagation ratio, and V/F point adjustments.
-
 ## What is included
 
 - Private NvAPI helpers for:
@@ -36,9 +30,8 @@ offset, MSVDD offset, propagation ratio, and V/F point adjustments.
   ratio, V/F points, and PERF limits.
 - Built a small CLI to read/write these controls.
 - Tested with **mVolt+ v0.32** on an RTX 5090 / driver 610.62.
-- A/B tested the controls and found a stable game configuration:
-  `XBAR +235 MHz / MSVDD +10 mV / ratio 1.2 / VF 225..245 +88 MHz`
-  → physical XBAR ~2970 MHz stable (3000 MHz was unstable).
+- A/B tested the controls and found a stable configuration (see
+  [TESTING.md](TESTING.md)).
 - Confirmed the propagation ratio is effective only when V/F and voltage
   support it.
 - Confirmed PERF limits SET is not exposed on the validated Windows driver.
@@ -107,17 +100,6 @@ specific. If you use a different driver:
   plausible values.
 - If values are zero or the command returns an error, **do not write**.
 - Re-verify the layouts for your driver before using write commands.
-
-## Stable configuration found
-
-```text
-XBAR +235 MHz
-MSVDD +10 mV
-Propagation ratio 1.2
-V/F flats 225..245 at +88 MHz
-```
-
-Physical XBAR: ~2970 MHz stable in game.
 
 ## License
 
