@@ -45,10 +45,22 @@
 
 ## 使用方法
 
-在项目根目录运行：
+普通用户请使用交互式向导（需要管理员）：
 
 ```powershell
-# 状态
+python run.py wizard
+```
+
+它会显示当前值、可设置范围，并引导你逐步修改 XBAR 偏移、MSVDD 偏移、传播比和 V/F 点。
+
+高级用户也可以使用直接命令，详见 [docs/USAGE.md](docs/USAGE.md)。
+
+### CLI 直接交互 / AI 辅助交互范例
+
+如果你喜欢直接命令行，或者想让 AI agent 帮你执行，以下是范例：
+
+```powershell
+# 读取当前状态
 python run.py status
 
 # 设置 XBAR 偏移 + MSVDD（管理员）
@@ -61,7 +73,7 @@ python run.py set-ratio --ratio 1.2
 python run.py vfp-set-range --start 225 --end 245 --freq-khz 88000
 ```
 
-写命令需要**管理员 PowerShell**。
+使用 AI 助手时，可以把 `status` 的输出贴给它，让它根据你的目标值生成正确的命令。
 
 ## mVolt+
 

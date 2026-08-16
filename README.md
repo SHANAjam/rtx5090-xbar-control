@@ -55,10 +55,25 @@ Validated only on:
 
 ## Usage
 
-From the project root:
+For normal users, use the interactive wizard (requires administrator):
 
 ```powershell
-# Status
+python run.py wizard
+```
+
+It shows current values, allowed ranges, and lets you change XBAR offset,
+MSVDD offset, propagation ratio, and V/F points step by step.
+
+Advanced users can also use the direct commands; see
+[docs/USAGE.md](docs/USAGE.md).
+
+### CLI / AI-assisted interaction examples
+
+If you prefer direct CLI commands, or you want to let an AI agent run them
+for you, here are examples:
+
+```powershell
+# Read current status
 python run.py status
 
 # Set XBAR offset + MSVDD (admin)
@@ -71,7 +86,8 @@ python run.py set-ratio --ratio 1.2
 python run.py vfp-set-range --start 225 --end 245 --freq-khz 88000
 ```
 
-Write commands require an **administrator** PowerShell.
+When using an AI assistant, you can paste your `status` output to it and ask
+it to generate the correct command for your target values.
 
 ## mVolt+
 
