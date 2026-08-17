@@ -32,6 +32,7 @@ python run.py wizard
 1. 先确认驱动版本是否在支持列表。
 2. 运行 `python run.py crack` 尝试自动匹配。
 3. 如果 crack 也失败，**不要**用 `--force-driver`。
+   - `--force-driver` 会跳过布局验证；布局不匹配时可能写错位置，造成损坏。
 4. 把 `probe` 输出发到 Issues。
 
 ### 2.3 L2 测试崩溃
