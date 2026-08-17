@@ -14,9 +14,13 @@
   - ClkDomains entry base/stride discovery.
   - VF STATUS/CONTROL record base/stride discovery.
   - XBAR bank fallback to `driver_profile.json`.
-- **JSON output** for `status` and `vfp-status` (`--json`).
+- **JSON output** for `status`, `vfp-status`, and `perf` (`--json`).
 - **Write cooldown** between write commands.
-- **Crack matching improvements** using dynamic read paths.
+- **Crack matching improvements** using dynamic read paths (globals removed).
+- **Profile system**: `profile-save`, `profile-apply`, `profile-list`.
+- **Autostart**: `autostart-install`, `autostart-remove`.
+- **Logging infrastructure**: `--verbose`, `--quiet`, `--log-file`.
+- **GitHub Actions CI**.
 - **Unit tests** for safety and prop_rels.
 - **Documentation**
   - `docs/TECHNICAL_NOTES.md` with complete LACT #1147 / PR #1158 / issue #1159 / NVIDIA #1266 context.

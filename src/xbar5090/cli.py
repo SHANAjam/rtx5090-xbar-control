@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import logging
 import os
+import subprocess
 import sys
 import time
 
@@ -21,27 +24,12 @@ if getattr(sys, "frozen", False):
 else:
     APP_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BACKUP_DIR = os.path.join(APP_DIR, "backups")
+PROFILES_DIR = os.path.join(APP_DIR, "profiles")
 VF_CTRL_SIZE = vf_points.VF_CTRL_VER
 
 
 def _api(gpu_index: int = 0) -> NvApi:
     return NvApi(gpu_index=gpu_index)
-
-
-def _ensure_supported(force: bool = False) -> bool:
-    if force:
-        print("WARNING: --force-driver set, skipping driver version check.", file=sys.stderr)
-        print("WARNING: This is dangerous if the NvAPI layout changed.", file=sys.stderr)
-        return True
-    ok, msg = driver_check.ensure_supported_driver()
-    if not ok:
-        print(f"ERROR: {msg}", file=sys.stderr)
-        return False
-    ok, msg = driver_check.ensure_supported_gpu()
-    if not ok:
-        print(f"ERROR: {msg}", file=sys.stderr)
-        return False
-    return True
 
 
 def _ensure_supported_auto(api: NvApi, args) -> bool:
@@ -131,6 +119,21 @@ def _safe_restore(restore_func, label: str, original_exc: Exception | None = Non
 
 _last_write_time = 0.0
 WRITE_COOLDOWN_SECONDS = 1.0
+LOG = logging.getLogger("xbar5090")
+
+
+def _setup_logging(args) -> None:
+    level = logging.WARNING
+    if getattr(args, "verbose", False):
+        level = logging.DEBUG
+    elif getattr(args, "quiet", False):
+        level = logging.ERROR
+    handlers = [logging.StreamHandler()]
+    log_file = getattr(args, "log_file", None)
+    if log_file:
+        handlers.append(logging.FileHandler(log_file, encoding="utf-8"))
+    logging.basicConfig(level=level, handlers=handlers,
+                        format="%(asctime)s %(levelname)s %(message)s")
 
 
 def _write_cooldown() -> None:
@@ -565,15 +568,142 @@ def cmd_restore_snapshot(args, api: NvApi) -> int:
     return 0
 
 
+def _profile_path(name: str) -> str:
+    return os.path.join(PROFILES_DIR, f"{name}.json")
+
+
+def cmd_profile_save(args, api: NvApi) -> int:
+    name = args.name
+    clk_buf, _, _ = clk_domains.read_clock_domains(api)
+    prop_buf, _ = prop_rels.read_prop_rels(api)
+    active = vf_points.active_mask(api)
+    vf_buf = vf_points.get_control(api, active)
+    os.makedirs(PROFILES_DIR, exist_ok=True)
+    path = _profile_path(name)
+    payload = {
+        "created": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "clk_b64": base64.b64encode(buf_to_bytes(clk_buf)).decode(),
+        "prop_b64": base64.b64encode(buf_to_bytes(prop_buf)).decode(),
+        "vf_b64": base64.b64encode(buf_to_bytes(vf_buf)).decode(),
+        "gpu_index": api.gpu_index,
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    print(f"Profile saved: {path}")
+    return 0
+
+
+def cmd_profile_apply(args, api: NvApi) -> int:
+    if not is_admin():
+        print("ERROR: profile apply requires administrator.", file=sys.stderr)
+        return 2
+    if not _ensure_supported_auto(api, args):
+        return 2
+    path = _profile_path(args.name)
+    if not os.path.isfile(path):
+        print(f"ERROR: profile not found: {path}", file=sys.stderr)
+        return 2
+    snap = backup_mod.load_snapshot(path)
+    clk_buf = bytes_to_buf(snap["clk_bytes"], clk_domains.CLK_DOMAINS_BUFSIZE)
+    prop_buf = bytes_to_buf(snap["prop_bytes"], prop_rels.PROP_RELS_BUFSIZE)
+    vf_buf = bytes_to_buf(snap["vf_bytes"], vf_points.VF_CTRL_VER)
+
+    cur_clk, _, _ = clk_domains.read_clock_domains(api)
+    cur_prop, _ = prop_rels.read_prop_rels(api)
+    cur_vf = vf_points.get_control(api, vf_points.active_mask(api))
+    backup_mod.save_snapshot(BACKUP_DIR, "pre_profile_apply", cur_clk, cur_prop, cur_vf,
+                             {"gpu_index": api.gpu_index})
+
+    try:
+        clk_domains.restore_from_buf(api, clk_buf)
+        prop_rels.restore_from_buf(api, prop_buf)
+        vf_points.set_control(api, vf_buf)
+    except Exception as e:
+        _safe_restore(lambda: clk_domains.restore_from_buf(api, cur_clk), "clk_domains", e)
+        _safe_restore(lambda: prop_rels.restore_from_buf(api, cur_prop), "prop_rels", e)
+        _safe_restore(lambda: vf_points.set_control(api, cur_vf), "vf_control", e)
+        print(f"ERROR: profile apply failed, rolled back: {e}", file=sys.stderr)
+        return 3
+
+    _, f, m = clk_domains.read_clock_domains(api)
+    _, r = prop_rels.read_prop_rels(api)
+    print(f"Profile applied: {args.name} (XBAR={f} kHz, MSVDD={m} uV, ratio_raw={r})")
+    return 0
+
+
+def cmd_profile_list(args, api: NvApi) -> int:
+    if not os.path.isdir(PROFILES_DIR):
+        print("No profiles saved.")
+        return 0
+    for name in sorted(os.listdir(PROFILES_DIR)):
+        if name.endswith(".json"):
+            print(name[:-5])
+    return 0
+
+
 def cmd_perf(args, api: NvApi) -> int:
     buf = perf_limits.get_perf_limits(api)
-    for uid in (perf_limits.XBAR_MAX_USER_ID, perf_limits.XBAR_MIN_USER_ID):
-        base = perf_limits.find_entry_by_user_id(buf, uid)
-        if base is None:
-            print(f"user_id {uid:#x}: not found")
-            continue
-        vals = [get_u32(buf, base + o) for o in range(0, 0x40, 4)]
-        print(f"user_id {uid:#x} base={base:#x} first8={[hex(v) for v in vals[:8]]}")
+    entries = perf_limits.parse_entries(buf)
+    if getattr(args, "json", False):
+        print(json.dumps({"entries": entries}, indent=2))
+        return 0
+    for e in entries:
+        print(f"user_id {e['user_id']:#x} base={e['base']:#x} first8={[hex(v) for v in e['values'][:8]]}")
+    return 0
+
+
+def _autostart_script_path() -> str:
+    return os.path.join(APP_DIR, "autostart_xbar.ps1")
+
+
+def _write_autostart_script() -> str:
+    if getattr(sys, "frozen", False):
+        cmd = f"& '{sys.executable}'"
+    else:
+        py = sys.executable
+        run = os.path.join(APP_DIR, "run.py")
+        cmd = f"& '{py}' '{run}'"
+    script = f"""$ErrorActionPreference = 'Continue'
+{cmd} vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --yes *> $env:TEMP\\xbar5090_autostart.log 2>&1
+{cmd} set-xbar --freq-khz 205000 --msvdd-uv 10000 --yes *>> $env:TEMP\\xbar5090_autostart.log 2>&1
+{cmd} set-ratio --ratio 1.2 --yes *>> $env:TEMP\\xbar5090_autostart.log 2>&1
+"""
+    path = _autostart_script_path()
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(script)
+    return path
+
+
+def cmd_autostart_install(args, api: NvApi) -> int:
+    if not is_admin():
+        print("ERROR: autostart-install requires administrator.", file=sys.stderr)
+        return 2
+    script = _write_autostart_script()
+    task_name = "xbar5090 Autostart"
+    cmd = (
+        f'schtasks /Create /TN "{task_name}" '
+        f'/TR "powershell -NoProfile -ExecutionPolicy Bypass -File \\"{script}\\"" '
+        f'/SC ONLOGON /RL HIGHEST /F'
+    )
+    r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"ERROR: failed to create scheduled task: {r.stderr.strip()}", file=sys.stderr)
+        return 1
+    print(f"Autostart installed: {task_name}")
+    print(f"Script: {script}")
+    return 0
+
+
+def cmd_autostart_remove(args, api: NvApi) -> int:
+    if not is_admin():
+        print("ERROR: autostart-remove requires administrator.", file=sys.stderr)
+        return 2
+    task_name = "xbar5090 Autostart"
+    r = subprocess.run(f'schtasks /Delete /TN "{task_name}" /F', shell=True, capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"ERROR: failed to remove scheduled task: {r.stderr.strip()}", file=sys.stderr)
+        return 1
+    print(f"Autostart removed: {task_name}")
     return 0
 
 
@@ -811,8 +941,11 @@ def cmd_l2_test(args, api: NvApi) -> int:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(prog="xbar5090", description="RTX 5090 XBAR controls via private NvAPI")
+    parser = argparse.ArgumentParser(prog="xbar5090", description="RTX 50-series XBAR controls via private NvAPI")
     parser.add_argument("--gpu", type=int, default=0, help="GPU index (default 0)")
+    parser.add_argument("--verbose", action="store_true", help="enable debug logging")
+    parser.add_argument("--quiet", action="store_true", help="only show errors")
+    parser.add_argument("--log-file", help="write logs to this file")
     sub = parser.add_subparsers(dest="cmd")
 
     write_common = argparse.ArgumentParser(add_help=False)
@@ -849,7 +982,11 @@ def main(argv=None) -> int:
     p_rest = sub.add_parser("vfp-restore", parents=[write_common])
     p_rest.add_argument("--backup", required=True)
     p_rest.set_defaults(func=cmd_vfp_restore)
-    sub.add_parser("perf").set_defaults(func=cmd_perf)
+    p_perf = sub.add_parser("perf")
+    p_perf.add_argument("--json", action="store_true", help="output JSON")
+    p_perf.set_defaults(func=cmd_perf)
+    sub.add_parser("autostart-install").set_defaults(func=cmd_autostart_install)
+    sub.add_parser("autostart-remove").set_defaults(func=cmd_autostart_remove)
     sub.add_parser("doctor").set_defaults(func=cmd_doctor)
     sub.add_parser("probe", help="auto-verify driver layout after a driver update (read-only)").set_defaults(func=cmd_probe)
     sub.add_parser("crack", help="auto-match driver function IDs from candidates.json (read-only probing)").set_defaults(func=cmd_crack)
@@ -866,12 +1003,20 @@ def main(argv=None) -> int:
     p_rs = sub.add_parser("restore-snapshot", parents=[write_common], help="restore clk+prop+vf snapshot")
     p_rs.add_argument("--snapshot", required=True)
     p_rs.set_defaults(func=cmd_restore_snapshot)
+    p_ps = sub.add_parser("profile-save", help="save current settings as a named profile")
+    p_ps.add_argument("name")
+    p_ps.set_defaults(func=cmd_profile_save)
+    p_pa = sub.add_parser("profile-apply", parents=[write_common], help="apply a named profile")
+    p_pa.add_argument("name")
+    p_pa.set_defaults(func=cmd_profile_apply)
+    sub.add_parser("profile-list", help="list saved profiles").set_defaults(func=cmd_profile_list)
 
     # If no subcommand is given, launch the interactive wizard directly.
     # This makes double-click / "Run as administrator" on the exe work.
     parser.set_defaults(func=cmd_wizard)
 
     args = parser.parse_args(argv)
+    _setup_logging(args)
     if getattr(args, "cmd", None) in {
         "set-xbar", "set-ratio", "vfp-set-range", "vfp-auto-range",
         "vfp-restore", "reset", "restore-snapshot", "wizard",

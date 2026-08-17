@@ -112,13 +112,9 @@ def _try_vf_info(api: NvApi, fid: int) -> bool:
         return False
 
 
-_CURRENT_VF_INFO = vf_points.VF_INFO
-_CURRENT_VF_STATUS = vf_points.VF_STATUS
-
-
-def _try_vf_status(api: NvApi, fid: int) -> bool:
+def _try_vf_status(api: NvApi, fid: int, vf_info_id: int = vf_points.VF_INFO) -> bool:
     try:
-        active = vf_points.active_mask(api, info_id=_CURRENT_VF_INFO)
+        active = vf_points.active_mask(api, info_id=vf_info_id)
         buf = make_buffer(vf_points.VF_STATUS_VER)
         set_u32(buf, 0, vf_points.VF_STATUS_VER)
         for i in active:
@@ -130,9 +126,11 @@ def _try_vf_status(api: NvApi, fid: int) -> bool:
         return False
 
 
-def _try_vf_get(api: NvApi, fid: int) -> bool:
+def _try_vf_get(api: NvApi, fid: int,
+                vf_info_id: int = vf_points.VF_INFO,
+                vf_status_id: int = vf_points.VF_STATUS) -> bool:
     try:
-        active = vf_points.active_mask(api, info_id=_CURRENT_VF_INFO)
+        active = vf_points.active_mask(api, info_id=vf_info_id)
         buf = make_buffer(vf_points.VF_CTRL_VER)
         set_u32(buf, 0, vf_points.VF_CTRL_VER)
         for i in active:
@@ -141,7 +139,7 @@ def _try_vf_get(api: NvApi, fid: int) -> bool:
         rc = api.call(fid, buf)
         if rc != 0:
             return False
-        bank = vf_points.detect_xbar_bank(api, info_id=_CURRENT_VF_INFO, status_id=_CURRENT_VF_STATUS)
+        bank = vf_points.detect_xbar_bank(api, info_id=vf_info_id, status_id=vf_status_id)
         return bank is not None
     except Exception:
         return False
@@ -188,14 +186,14 @@ def crack_driver(api: NvApi, candidates_path: str | None = None) -> bool:
     found["prop_get"] = _pick(api, "PropRelsGet", cands.get("prop_get", []), _try_prop_get)
     found["prop_set"] = _pick(api, "PropRelsSet", cands.get("prop_set", []), None, is_set=True)
     found["vf_info"] = _pick(api, "VF_INFO", cands.get("vf_info", []), _try_vf_info)
-    if found["vf_info"] is not None:
-        global _CURRENT_VF_INFO
-        _CURRENT_VF_INFO = found["vf_info"]
-    found["vf_status"] = _pick(api, "VF_STATUS", cands.get("vf_status", []), _try_vf_status)
-    if found["vf_status"] is not None:
-        global _CURRENT_VF_STATUS
-        _CURRENT_VF_STATUS = found["vf_status"]
-    found["vf_get"] = _pick(api, "VF_GET", cands.get("vf_get", []), _try_vf_get)
+    vf_info_id = found["vf_info"] or vf_points.VF_INFO
+    found["vf_status"] = _pick(
+        api, "VF_STATUS", cands.get("vf_status", []),
+        lambda api, fid: _try_vf_status(api, fid, vf_info_id))
+    vf_status_id = found["vf_status"] or vf_points.VF_STATUS
+    found["vf_get"] = _pick(
+        api, "VF_GET", cands.get("vf_get", []),
+        lambda api, fid: _try_vf_get(api, fid, vf_info_id, vf_status_id))
     found["vf_set"] = _pick(api, "VF_SET", cands.get("vf_set", []), None, is_set=True)
     found["perf_get"] = _pick(api, "PERF_GET", cands.get("perf_get", []), _try_perf_get)
 

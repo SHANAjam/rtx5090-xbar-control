@@ -12,6 +12,11 @@ All notable changes to this project are documented here.
 - Basic unit tests in `tests/` (safety, prop_rels).
 - Crack matching now uses dynamic layout read paths (less false-positive risk).
 - XBAR domain index discovery from live control buffer (profile/API fallback).
+- `perf --json` output and full PERF entry parsing.
+- `autostart-install` / `autostart-remove` commands.
+- `profile-save` / `profile-apply` / `profile-list` commands.
+- Basic logging infrastructure (`--verbose`, `--quiet`, `--log-file`).
+- GitHub Actions CI workflow.
 - Unified user-facing stable combo to +205 / VF 224..253 (README, USAGE, wizard).
 - Cross-version static validation for R572.16..R610.88 (desktop + selected notebook).
 - Fully decoded PropRels GET_INFO descriptor (type/src/dst/bidir).

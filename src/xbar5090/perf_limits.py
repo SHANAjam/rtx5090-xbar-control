@@ -45,3 +45,20 @@ def find_entry_by_user_id(buf, uid: int):
         if get_u32(buf, base) == uid:
             return base
     return None
+
+
+def parse_entries(buf):
+    """Parse all PERF limit entries into a list of dicts."""
+    entries = []
+    for i in range(0, (PERF_SIZE - 0xC) // 0x338):
+        base = 0xC + i * 0x338
+        uid = get_u32(buf, base)
+        if uid == 0:
+            continue
+        entries.append({
+            "index": i,
+            "user_id": uid,
+            "base": base,
+            "values": [get_u32(buf, base + o) for o in range(0, 0x40, 4)],
+        })
+    return entries
