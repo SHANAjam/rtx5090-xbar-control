@@ -28,7 +28,7 @@
 
 ## 这是什么？
 
-一个 Windows 下的 RTX 50 系 XBAR 控制工具：
+一个 Windows 下的 RTX 50 系 XBAR（crossbar）控制工具：
 
 - XBAR 频率偏移
 - XBAR-domain MSVDD 偏移

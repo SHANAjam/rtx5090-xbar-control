@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "DSH/DeepSeek harness" }]
 keywords = [
     "nvidia", "rtx5090", "rtx5080", "rtx5070", "rtx5060", "rtx5050",
-    "blackwell", "xbar", "overclocking", "nvapi", "gpu", "windows",
+    "blackwell", "xbar", "crossbar", "overclocking", "nvapi", "gpu", "windows",
     "lact", "mvolt", "vbios", "clock", "voltage",
 ]
 classifiers = [

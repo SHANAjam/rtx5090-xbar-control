@@ -1,6 +1,6 @@
 # 技术说明
 
-> 中文技术文档。英文版：[TECHNICAL_NOTES.md](TECHNICAL_NOTES.md)
+> RTX 50 系 XBAR（crossbar）控制项目的中文技术文档。英文版：[TECHNICAL_NOTES.md](TECHNICAL_NOTES.md)
 
 ## 目录
 

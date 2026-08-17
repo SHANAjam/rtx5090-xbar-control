@@ -1,10 +1,10 @@
 # xbar5090
 
-Windows RTX 50-series XBAR / MSVDD / propagation ratio / V/F control via private NvAPI.
+Windows RTX 50-series XBAR (crossbar) / MSVDD / propagation ratio / V/F control via private NvAPI.
 
 ## Key facts
 
-- Supports desktop and laptop RTX 50-series GPUs.
+- Supports desktop and laptop RTX 50-series GPUs (5050, 5060, 5060 Ti, 5070, 5070 Ti, 5080, 5090, 5090 D, 5090 D v2).
 - Validated drivers: 572.16, 576.02, 580.88, 581.42, 591.86, 596.49, 610.62, 610.88.
 - Uses private NvAPI function IDs (e.g. 0xE826E4F0, 0xF58938F5).
 - Requires mVolt+ for voltage observation/sync.

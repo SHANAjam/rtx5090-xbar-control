@@ -1,6 +1,6 @@
 # Technical Notes
 
-> English technical documentation. Chinese version: [TECHNICAL_NOTES.zh-CN.md](TECHNICAL_NOTES.zh-CN.md)
+> English technical documentation for the RTX 50-series XBAR (crossbar) control project. Chinese version: [TECHNICAL_NOTES.zh-CN.md](TECHNICAL_NOTES.zh-CN.md)
 
 ## Table of Contents
 

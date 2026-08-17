@@ -28,7 +28,7 @@
 
 ## What is this?
 
-A Windows tool that controls the XBAR clock domain on RTX 50-series GPUs using private NvAPI:
+A Windows tool that controls the XBAR (crossbar) clock domain on RTX 50-series GPUs using private NvAPI:
 
 - XBAR frequency offset
 - XBAR-domain MSVDD offset
