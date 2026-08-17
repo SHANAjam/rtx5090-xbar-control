@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software in research, please cite it as below."
+title: "xbar5090"
+abstract: "Windows RTX 50-series XBAR / MSVDD / propagation ratio / V/F control via private NvAPI."
+authors:
+  - family-names: "SHANAjam"
+    given-names: ""
+    orcid: ""
+version: "0.2.1"
+date-released: "2026-08-17"
+url: "https://github.com/SHANAjam/rtx5090-xbar-control"
+keywords:
+  - nvidia
+  - rtx5090
+  - overclocking
+  - nvapi
+  - xbar
+  - windows
+  - gpu

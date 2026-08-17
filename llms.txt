@@ -1,0 +1,40 @@
+# xbar5090
+
+Windows RTX 50-series XBAR / MSVDD / propagation ratio / V/F control via private NvAPI.
+
+## Key facts
+
+- Supports desktop and laptop RTX 50-series GPUs.
+- Validated drivers: 572.16, 576.02, 580.88, 581.42, 591.86, 596.49, 610.62, 610.88.
+- Uses private NvAPI function IDs (e.g. 0xE826E4F0, 0xF58938F5).
+- Requires mVolt+ for voltage observation/sync.
+- Includes L2 data-integrity stability test.
+
+## Documentation
+
+- README: https://github.com/SHANAjam/rtx5090-xbar-control/blob/main/README.md
+- Chinese README: https://github.com/SHANAjam/rtx5090-xbar-control/blob/main/README.zh-CN.md
+- Technical notes (EN): https://github.com/SHANAjam/rtx5090-xbar-control/blob/main/docs/TECHNICAL_NOTES.md
+- Technical notes (ZH): https://github.com/SHANAjam/rtx5090-xbar-control/blob/main/docs/TECHNICAL_NOTES.zh-CN.md
+
+## Key commands
+
+```powershell
+python run.py status --json
+python run.py wizard
+python run.py set-xbar --freq-khz 200000 --msvdd-uv 10000 --yes
+python run.py set-ratio --ratio 1.2 --yes
+python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --yes
+python run.py l2-test
+```
+
+## Suggested starting point
+
+- Sync MSVDD with NVVDD in mVolt+.
+- Ratio 1.2.
+- Start XBAR at +200 MHz.
+- Start VF at +88 MHz, but tune per card; 88 MHz is not a universal conservative value.
+
+## Feedback
+
+Report issues at https://github.com/SHANAjam/rtx5090-xbar-control/issues
