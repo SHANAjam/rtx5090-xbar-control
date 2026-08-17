@@ -10,8 +10,27 @@ MSVDD voltage, propagation ratio, and V/F points on an RTX 5090.
 - Windows 10/11 x64
 - RTX 5090 (GB202)
 - Validated driver: 610.62 (other drivers may not work)
-- Python 3.10+ installed
 - Administrator PowerShell
+- Python 3.10+ if running from source (not needed for prebuilt exe)
+
+### No Python? Use the prebuilt executable
+
+If you downloaded `xbar5090.exe` (single-file) or the
+`xbar5090-folder` build, open an **administrator** terminal in that folder and
+run:
+
+```powershell
+.\xbar5090.exe wizard
+```
+
+For the folder build:
+
+```powershell
+.\xbar5090-folder\xbar5090-folder.exe wizard
+```
+
+The rest of this guide is the same: replace `python run.py ...` with
+`xbar5090.exe ...`.
 
 ## Step 1: Check Python
 

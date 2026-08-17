@@ -76,10 +76,48 @@ Normal users can download the project directly:
 3. Click **Download ZIP**.
 4. Extract the ZIP and follow the usage instructions.
 
+If you do not have Python installed, use the prebuilt executables from
+**Releases** (see below).
+
+## Prebuilt executables
+
+Two Windows x64 builds are provided in Releases:
+
+- `xbar5090.exe` — single-file build.
+- `xbar5090-folder/` — folder build (larger, but often starts faster and is
+  easier to whitelist in antivirus software).
+
+Run them from an **administrator** terminal, for example:
+
+```powershell
+xbar5090.exe wizard
+```
+
+Both builds contain the same code as the source in this repository. Download
+them only from this repository.
+
+## Antivirus false positive warning
+
+The exe is built with PyInstaller and uses private NvAPI functions to modify
+GPU clocks/voltages. Windows SmartScreen and many antivirus products may flag
+it as suspicious or as a false positive. This is expected for an unsigned tool
+that performs low-level hardware writes.
+
+If you trust the source:
+
+- Add an exclusion for the downloaded file/folder in Windows Security or your
+  antivirus, or
+- run from source with Python (`python run.py wizard`) instead.
+
+Always download from this repository and check the file size/name against the
+Release notes.
+
 ## Status / not implemented
 
-- **Packaging as exe / CI / unit tests**: not a priority for this project.
-  It is a personal validation tool, not production software.
+- **CI / unit tests**: not a priority for this project. It is a personal
+  validation tool, not production software.
+- **Code signing**: not implemented, which is why antivirus false positives
+  are possible.
 - **Automatic physical MSVDD reading**: not promised. Direct NvAPI reading of
   physical MSVDD has not been verified yet. The wizard currently asks you to
   enter MSVDD manually.
