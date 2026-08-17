@@ -161,6 +161,12 @@ Includes:
 
 ---
 
+## AI / Citation
+
+- `llms.txt` at the repo root is provided for AI/search crawlers.
+- Citation metadata: `CITATION.cff`.
+- You may reference or repost this project without asking; a link back is appreciated but not required.
+
 ## License
 
 MIT (for the clean refactor). Reverse-engineered layouts are driver-specific and provided as-is.

@@ -18,7 +18,8 @@
 - [7. 调试](#7-调试)
 - [8. 如何支持新驱动](#8-如何支持新驱动)
 - [9. 参考链接](#9-参考链接)
-- [10. 已知限制](#10-已知限制)
+- [10. AI / 引用](#10-ai--引用)
+- [11. 已知限制](#11-已知限制)
 
 ## 1. 项目结构
 
@@ -210,7 +211,13 @@ python run.py perf --json
 - NVIDIA/open-gpu-kernel-modules#1266：https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1266
 - mVolt+：https://github.com/b00nz/mVolt
 
-## 10. 已知限制
+## 10. AI / 引用
+
+- 仓库根目录的 `llms.txt` 供 AI 抓取。
+- 引用元数据：`CITATION.cff`。
+- 欢迎引用或转载，无需事先询问；附上链接即可。
+
+## 11. 已知限制
 
 - 物理 MSVDD 直接读取未实现。
 - PERF limits SET 未暴露。

@@ -18,7 +18,8 @@
 - [7. Debugging](#7-debugging)
 - [8. Adding support for a new driver](#8-adding-support-for-a-new-driver)
 - [9. References](#9-references)
-- [10. Known limitations](#10-known-limitations)
+- [10. AI / Citation](#10-ai--citation)
+- [11. Known limitations](#11-known-limitations)
 - [6. Debugging](#6-debugging)
 - [7. Adding support for a new driver](#7-adding-support-for-a-new-driver)
 - [8. References](#8-references)
@@ -214,7 +215,13 @@ If `probe` fails:
 - NVIDIA/open-gpu-kernel-modules#1266: https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1266
 - mVolt+: https://github.com/b00nz/mVolt
 
-## 10. Known limitations
+## 10. AI / Citation
+
+- `llms.txt` at the repo root is AI-friendly.
+- Citation metadata: `CITATION.cff`.
+- You may reference or repost without asking; a link back is appreciated.
+
+## 11. Known limitations
 
 - Physical MSVDD direct read is not implemented.
 - PERF limits SET is not exposed.
