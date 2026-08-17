@@ -22,6 +22,11 @@
 - **Logging infrastructure**: `--verbose`, `--quiet`, `--log-file`.
 - **GitHub Actions CI**.
 - **Unit tests** for safety and prop_rels.
+- **Documentation restructure**:
+  - `docs/USER_GUIDE.md`
+  - `docs/DEVELOPER_GUIDE.md`
+  - `docs/DEBUGGING.md`
+  - README rewritten as a polished landing page with clear user/developer paths.
 - **Documentation**
   - `docs/TECHNICAL_NOTES.md` with complete LACT #1147 / PR #1158 / issue #1159 / NVIDIA #1266 context.
   - `docs/FINDINGS.md`, `docs/DRIVER_VALIDATION.md`, `docs/REVERSE_NOTES.md`.

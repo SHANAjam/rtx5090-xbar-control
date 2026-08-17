@@ -17,6 +17,7 @@ All notable changes to this project are documented here.
 - `profile-save` / `profile-apply` / `profile-list` commands.
 - Basic logging infrastructure (`--verbose`, `--quiet`, `--log-file`).
 - GitHub Actions CI workflow.
+- Documentation restructure: USER_GUIDE / DEVELOPER_GUIDE / DEBUGGING + new README.
 - Unified user-facing stable combo to +205 / VF 224..253 (README, USAGE, wizard).
 - Cross-version static validation for R572.16..R610.88 (desktop + selected notebook).
 - Fully decoded PropRels GET_INFO descriptor (type/src/dst/bidir).
