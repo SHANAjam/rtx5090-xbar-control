@@ -17,6 +17,10 @@ CLK_DOMAINS_BUFSIZE = 0x13000
 CLK_DOMAINS_MASK = 0xFF
 CLK_DOMAIN_ENTRY_STRIDE = 0x304
 CLK_DOMAIN_ENTRY_BASE = 0x124
+# XBAR domain index is hardcoded (validated on RTX 5090 / driver 610.62/610.88).
+# LACT uses GET_INFO to discover this dynamically; on Windows we do not yet
+# have a verified ClkDomainsGetInfo layout, but index 1 matches both RM and
+# NvAPI on the validated cards, so risk is considered low.
 XBAR_DOMAIN_INDEX = 1
 OFF_FREQ_KHZ = 0x114
 OFF_MSVDD_UV = 0x11C

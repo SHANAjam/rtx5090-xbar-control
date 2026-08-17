@@ -64,6 +64,12 @@ the same as 610.62.
   with a real workload.
 - PERF limits SET (`0x2080E0AF`) was not found in `nvapi64.dll` or
   `nvapi64_impl.dll` on the validated driver.
+- `CLK_MEASURE_FREQ` (`0x527FC458`) is a newly found read path for physical
+  XBAR frequency and **needs independent validation** on more cards/drivers.
+- `PropRelsGetInfo` (`0xE826E4F0`) on the validated driver returns a
+  relationship entry where the default ratio raw `0xE660` is immediately
+  preceded by the descriptor `0x00010100`. This is used as a best-effort
+  fingerprint check; other VBIOS may differ.
 
 ## Environment detection
 

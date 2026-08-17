@@ -25,13 +25,41 @@ PROP_OFF_RATIO = 0x04
 DEFAULT_RATIO_RAW = 58976  # 0xE660 = 0.89990234375
 
 
+# Relationship descriptor observed on validated RTX 5090 / driver 610.62/610.88
+# immediately before the default ratio raw 0xE660 in GET_INFO.
+KNOWN_RELATIONSHIP_DESC = 0x00010100
+
+
 def validate_prop_rels(api: NvApi) -> bool:
-    """Call GET_INFO first (safety step required by upstream LACT research)."""
+    """Call GET_INFO and verify the relationship entry fingerprint.
+
+    This is a deeper best-effort check than rc==0. On the validated driver,
+    the GET_INFO buffer contains the default ratio raw 0xE660 and the u32
+    immediately before it is the relationship descriptor 0x00010100.
+
+    If the descriptor differs, we warn but do not hard-block: other VBIOS may
+    encode it differently. The warning is printed to stderr so the user knows
+    the relationship was not positively matched.
+    """
+    import sys as _sys
     try:
         buf = make_buffer(PROP_RELS_GET_INFO_VER)
         set_u32(buf, 0, PROP_RELS_GET_INFO_VER)
         rc = api.call(PROP_RELS_GET_INFO, buf)
-        return rc == 0
+        if rc != 0:
+            return False
+        # Locate the default ratio raw value.
+        for off in range(4, len(bytes(buf)) - 4, 4):
+            if get_u32(buf, off) == DEFAULT_RATIO_RAW:
+                desc = get_u32(buf, off - 4)
+                if desc == KNOWN_RELATIONSHIP_DESC:
+                    return True
+                print(f"WARNING: relationship descriptor {desc:#x} differs from "
+                      f"validated {KNOWN_RELATIONSHIP_DESC:#x}.", file=_sys.stderr)
+                return True
+        print("WARNING: could not locate default ratio raw 0xE660 in GET_INFO.",
+              file=_sys.stderr)
+        return True
     except Exception:
         return False
 
