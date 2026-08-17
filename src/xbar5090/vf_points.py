@@ -154,7 +154,15 @@ def detect_xbar_bank(api: NvApi, info_id: int = VF_INFO, status_id: int = VF_STA
                 candidates.append((s, e))
 
     if not candidates:
-        return _profile_bank()
+        profile_bank = _profile_bank()
+        if profile_bank is not None:
+            return profile_bank
+        # Validated fallback for the exact GB202 648-active-flat layout.
+        # This is not a blanket assumption: it only triggers when the live
+        # active mask matches the known RTX 5090 layout.
+        if len(active) == 648 and active[0] == 0 and active[-1] == 647:
+            return (127, 253)
+        return None
 
     for s, e in candidates:
         if s == 127:
