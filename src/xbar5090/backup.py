@@ -7,13 +7,14 @@ import json
 import os
 import secrets
 import time
+from datetime import datetime
 
 from .nvapi import buf_to_bytes, bytes_to_buf
 
 
 def save_binary_backup(directory: str, label: str, buf, metadata: dict | None = None):
     os.makedirs(directory, exist_ok=True)
-    ts = time.strftime("%Y%m%d_%H%M%S_%f")
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     rand = secrets.token_hex(2)
     suffix = f"{ts}_{rand}"
     bin_path = os.path.join(directory, f"{label}_{suffix}.bin")
@@ -38,7 +39,7 @@ def load_binary_backup(path: str, size: int):
 def save_snapshot(directory: str, label: str, clk_buf, prop_buf, vf_buf,
                   metadata: dict | None = None) -> str:
     os.makedirs(directory, exist_ok=True)
-    ts = time.strftime("%Y%m%d_%H%M%S_%f")
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     rand = secrets.token_hex(2)
     path = os.path.join(directory, f"{label}_{ts}_{rand}.json")
     payload = {

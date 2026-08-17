@@ -29,6 +29,9 @@ For the folder build:
 .\xbar5090-folder\xbar5090-folder.exe wizard
 ```
 
+You can also just **right-click the exe → Run as administrator**; it starts
+the wizard directly.
+
 The rest of this guide is the same: replace `python run.py ...` with
 `xbar5090.exe ...`.
 

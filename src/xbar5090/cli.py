@@ -11,7 +11,11 @@ from . import clk_domains, driver_check, prop_rels, safety, vf_points
 from . import perf_limits
 from .nvapi import NvApi, bytes_to_buf, buf_to_bytes, get_u32, is_admin
 
-BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "backups")
+if getattr(sys, "frozen", False):
+    APP_DIR = os.path.dirname(sys.executable)
+else:
+    APP_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BACKUP_DIR = os.path.join(APP_DIR, "backups")
 VF_CTRL_SIZE = vf_points.VF_CTRL_VER
 
 
@@ -446,7 +450,7 @@ def cmd_doctor(args, api: NvApi) -> int:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="xbar5090", description="RTX 5090 XBAR controls via private NvAPI")
     parser.add_argument("--gpu", type=int, default=0, help="GPU index (default 0)")
-    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub = parser.add_subparsers(dest="cmd")
 
     sub.add_parser("status").set_defaults(func=cmd_status)
     p_x = sub.add_parser("set-xbar")
@@ -474,6 +478,10 @@ def main(argv=None) -> int:
     p_rs = sub.add_parser("restore-snapshot", help="restore clk+prop+vf snapshot")
     p_rs.add_argument("--snapshot", required=True)
     p_rs.set_defaults(func=cmd_restore_snapshot)
+
+    # If no subcommand is given, launch the interactive wizard directly.
+    # This makes double-click / "Run as administrator" on the exe work.
+    parser.set_defaults(func=cmd_wizard)
 
     args = parser.parse_args(argv)
     try:
