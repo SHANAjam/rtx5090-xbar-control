@@ -79,6 +79,17 @@ VF     ：+88 MHz
 - 不同显卡/VBIOS/散热需要单独试。
 - 如果崩溃，先降 XBAR（例如 +200 → +178 或 +150）。
 
+### VF +88 MHz 是什么意思？
+
+- VF = **V/F 点**（电压/频率曲线上的点）。
+- `+88 MHz` = 给选中的 XBAR V/F 点统一**额外加上 88 MHz 的频率偏移**。
+- 作用：把 XBAR 的 V/F 曲线整体抬高，配合 XBAR 偏移和传播比例，让更高的 XBAR 频率有对应的电压支撑。
+- 在命令里对应：
+  ```powershell
+  python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000
+  ```
+  其中 `88000 kHz = +88 MHz`。
+
 ## 5. 常用命令
 
 ```powershell
