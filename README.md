@@ -1,0 +1,312 @@
+# xbar5090
+
+**Windows RTX 50-series: raise the achievable XBAR clock via private NvAPI**
+
+> 🌐 [中文说明](README.zh-CN.md)
+
+> **Project source / credits**: This project is a Windows port/follow-up of
+> the Linux work published by **Loong0x00** in
+> [LACT #1147](https://github.com/ilya-zlobintsev/LACT/issues/1147) and the
+> Windows NvAPI entry points confirmed by **Panchovix** in
+> [LACT PR #1158](https://github.com/ilya-zlobintsev/LACT/pull/1158).
+> The propagation-ratio method was publicly shared by Loong0x00 on 2026-08-16;
+> this Windows implementation was published the next day. It is not a
+> from-scratch independent reverse engineering project. See
+> [docs/TECHNICAL_NOTES.md](docs/TECHNICAL_NOTES.md) for details.
+
+> **AI assistance disclosure**: This project was produced with the assistance
+> of an AI software engineering harness (DeepSeek). The author is not a
+> professional developer and does not speak English fluently. Code and
+> conclusions may contain errors. See [DISCLAIMER.md](DISCLAIMER.md).
+
+> **WARNING**: This modifies GPU clock/voltage state. Use at your own risk.
+> Always back up and verify readback after every write.
+
+## What is included
+
+- Private NvAPI helpers for:
+  - XBAR frequency offset
+  - XBAR-domain MSVDD offset
+  - GPC->XBAR propagation ratio
+  - 127-point XBAR V/F status/control
+  - PERF limits read-only
+- Dynamic layout discovery (PropRels / ClkDomains / VF records)
+- JSON output for `status` and `vfp-status` (`--json`)
+- Write cooldown to protect the driver from rapid scripted writes
+- Basic unit tests in `tests/`
+- Test results and load conditions in [TESTING.md](TESTING.md)
+
+## What this adds (compared to mVolt+)
+
+mVolt+ can already set XBAR offset, MSVDD, and NVVDD. However, on the
+validated card, raising XBAR offset in mVolt+ alone caused MSVDD to drop
+(inversion) and XBAR stayed stuck around ~2882 MHz.
+
+This project adds the missing pieces that make the XBAR offset actually work:
+
+- Propagation ratio control (0.9/1.2)
+- 127-point XBAR V/F read/write
+- MSVDD compensation (+10 mV) to avoid the inversion
+- A validated combo:
+  `XBAR +205 / MSVDD +10 mV / ratio 1.2 / VF auto wide range +88`
+  → L2 PASS, chosen as the daily stable setting (higher tested: +215)
+- Open source / scriptable / AI-callable
+
+## What was done
+
+- Reverse-engineered private Windows NvAPI IDs for propagation ratio, V/F
+  points, and PERF limits (and XBAR/MSVDD as a scriptable alternative).
+- Built a small CLI + interactive wizard.
+- Tested with **mVolt+ v0.32** on an RTX 5090 / driver 610.62.
+- A/B tested the controls and found a stable configuration (see
+  [TESTING.md](TESTING.md)).
+- Confirmed the propagation ratio is effective only when V/F and voltage
+  support it.
+- Confirmed PERF limits SET is not exposed on the validated Windows driver.
+- AI-assisted; may contain errors.
+
+## Documents
+
+- **Usage**: [docs/USAGE.md](docs/USAGE.md) — how RTX 50-series users can use
+  the wizard.
+- **Technical notes**: [docs/TECHNICAL_NOTES.md](docs/TECHNICAL_NOTES.md) —
+  conclusions, NvAPI IDs, versions, structure offsets, and the complete
+  context of LACT #1147 / PR #1158 / issue #1159 / NVIDIA issue #1266.
+- **Findings register**: [docs/FINDINGS.md](docs/FINDINGS.md) — every
+  discovery, used or unused, grouped by status.
+- **Reverse-engineering notes**: [docs/REVERSE_NOTES.md](docs/REVERSE_NOTES.md)
+  — full GET_INFO descriptor decode and static table analysis.
+- **Driver validation**: [docs/DRIVER_VALIDATION.md](docs/DRIVER_VALIDATION.md)
+  — cross-version R572.16..R610.88 validation results and scripts.
+- **Testing**: [TESTING.md](TESTING.md) — L2 results and load conditions.
+
+## Technical documentation map
+
+The most important reverse-engineering context is in
+[docs/TECHNICAL_NOTES.md](docs/TECHNICAL_NOTES.md), including a prominent
+section covering:
+
+- LACT issue #1147 (Loong0x00's XBAR propagation ratio + L2 test)
+- LACT PR #1158 (adjustable clock domains)
+- LACT issue #1159 (related discussion)
+- NVIDIA/open-gpu-kernel-modules#1266 (finite memory-clock maximum)
+
+All discoveries, used and unused, are categorized in
+[docs/FINDINGS.md](docs/FINDINGS.md). The full GET_INFO descriptor decode is
+in [docs/REVERSE_NOTES.md](docs/REVERSE_NOTES.md).
+
+## Tags / topics
+
+`nvidia` · `rtx5090` · `rtx5080` · `rtx5070` · `rtx5060` · `rtx5050` ·
+`blackwell` · `xbar` · `overclocking` · `nvapi` · `gpu` · `windows` ·
+`lact` · `mvolt` · `vbios` · `clock` · `voltage`
+
+## Hardware / driver
+
+Supported RTX 50-series models (desktop and laptop, same private NvAPI layout):
+
+- Desktop: RTX 5050, 5060, 5060 Ti (8GB/16GB), 5070, 5070 Ti, 5080, 5090, 5090 D, 5090 D v2
+- Laptop: RTX 5050, 5060, 5070, 5070 Ti, 5080, 5090 Laptop GPU (write allowed, use with caution)
+
+Validated on:
+
+- Windows 10/11 x64
+- Driver versions (static validation PASS):
+  **572.16, 576.02, 580.88, 581.42, 591.86, 596.49, 610.62, 610.88**
+- Runtime-tested on: NVIDIA RTX 5090 (GB202)
+- mVolt+ v0.32 was used for voltage base and clock observation
+
+## Download
+
+Normal users can download the project directly:
+
+1. Open this repository.
+2. Click the green **Code** button.
+3. Click **Download ZIP**.
+4. Extract the ZIP and follow the usage instructions.
+
+If you do not have Python installed, use the prebuilt executables from
+**Releases** (see below).
+
+## Prebuilt executables
+
+Two Windows x64 builds are provided in Releases:
+
+- `xbar5090.exe` — single-file build.
+- `xbar5090-folder/` — folder build (larger, but often starts faster and is
+  easier to whitelist in antivirus software).
+
+Run them from an **administrator** terminal, for example:
+
+```powershell
+xbar5090.exe wizard
+```
+
+You can also just **right-click the exe → Run as administrator**; it starts
+the interactive wizard directly. Both builds contain the same code as the
+source in this repository. Download them only from this repository.
+
+## Antivirus false positive warning
+
+The exe is built with PyInstaller and uses private NvAPI functions to modify
+GPU clocks/voltages. Windows SmartScreen and many antivirus products may flag
+it as suspicious or as a false positive. This is expected for an unsigned tool
+that performs low-level hardware writes.
+
+If you trust the source:
+
+- Add an exclusion for the downloaded file/folder in Windows Security or your
+  antivirus, or
+- run from source with Python (`python run.py wizard`) instead.
+
+Always download from this repository and check the file size/name against the
+Release notes.
+
+## Status / not implemented
+
+- **CI / unit tests**: not a priority for this project. It is a personal
+  validation tool, not production software.
+- **Code signing**: not implemented, which is why antivirus false positives
+  are possible.
+- **Automatic physical MSVDD reading**: not promised. Direct NvAPI reading of
+  physical MSVDD has not been verified yet. The wizard currently asks you to
+  enter MSVDD manually.
+- **Profile system / JSON output**: useful but not urgent. Not implemented yet.
+
+## Usage
+
+For normal users, use the interactive wizard (requires administrator):
+
+```powershell
+python run.py wizard
+```
+
+It shows current values, allowed ranges, and lets you change XBAR offset,
+MSVDD offset, propagation ratio, and V/F points step by step.
+
+Advanced users can also use the direct commands; see
+[docs/USAGE.md](docs/USAGE.md).
+
+### CLI / AI-assisted interaction examples
+
+If you prefer direct CLI commands, or you want to let an AI agent run them
+for you, here are examples:
+
+```powershell
+# Read current status
+python run.py status
+
+# Set XBAR offset + MSVDD (admin)
+python run.py set-xbar --freq-khz 205000 --msvdd-uv 10000
+
+# Set propagation ratio (admin)
+python run.py set-ratio --ratio 1.2
+
+# Auto-select and set a broad XBAR V/F range around your physical MSVDD (admin)
+python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000
+
+# Or manually specify a range (admin)
+python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
+
+# Run the XBAR L2 data-integrity stability test
+python run.py l2-test
+```
+
+## Force option (`--force-driver`)
+
+All write commands accept `--force-driver` to skip the driver/GPU checks.
+This is the escape hatch when auto-detection refuses a card that you know is
+compatible.
+
+With the exe, open an **administrator** terminal in the exe folder:
+
+```powershell
+.\xbar5090.exe wizard --force-driver --yes
+```
+
+Or a direct write:
+
+```powershell
+.\xbar5090.exe set-xbar --freq-khz 228000 --msvdd-uv 10000 --force-driver --yes
+```
+
+With source:
+
+```powershell
+python run.py wizard --force-driver --yes
+```
+
+> **Danger**: `--force-driver` skips safety checks. Only use it when you know
+> the NvAPI layout is compatible. If the layout changed, writes can corrupt
+> clocks/voltages. `--yes` also skips step/validated confirmations.
+
+When using an AI assistant, you can paste your `status` output to it and ask
+it to generate the correct command for your target values.
+
+## mVolt+
+
+This project was tested together with **mVolt+ v0.32**. mVolt+ is used to:
+
+- adjust MSVDD and NVVDD,
+- adjust XBAR,
+- and run its built-in boost test to load the XBAR.
+
+This project does **not** replace mVolt+; it adds additional XBAR/ratio/VF
+controls on top. Official mVolt+ repository: https://github.com/b00nz/mVolt
+
+## Observation tips
+
+- **HWiNFO64**: you can view MSVDD and XBAR directly, or enable shared memory
+  so an AI agent can read them for you.
+- **mVolt+ boost button**: clicking the boost button (top-right) under low
+  load raises the XBAR frequency, making it easy to view the maximum
+  frequency.
+- **Auto-start**: this project does **not** implement auto-start at boot.
+  If you need it, ask an AI assistant for help or contact the author.
+
+## Driver version
+
+Validated driver versions (static cross-version analysis, R572..R610):
+
+```text
+572.16, 576.02, 580.88, 581.42, 591.86, 596.49, 610.62, 610.88
+```
+
+After a driver update, run:
+
+```powershell
+python run.py crack
+```
+
+`crack` matches the driver's NvAPI IDs against `candidates.json` (read-only).
+If it passes, the driver is considered compatible. If you still want to write
+on an unverified driver, add `--force-driver` to write commands.
+
+See [docs/DRIVER_VALIDATION.md](docs/DRIVER_VALIDATION.md) for the full
+validation report.
+
+## Cross-version compatibility
+
+The private NvAPI structure layouts are driver-branch specific. Use:
+
+- `python run.py probe` — verify the known layout is still valid (read-only).
+- `python run.py crack` — auto-match known candidate IDs (read-only).
+- `--force-driver` — skip the driver check (dangerous, only for experts).
+
+If values are zero or the command returns an error, **do not write** unless
+you fully understand the risk.
+
+## References
+
+- Overclocking tutorials (Bilibili; see video content, description, and comments):
+  - https://www.bilibili.com/video/BV1e8gV6xEZC
+  - https://www.bilibili.com/video/BV1NQbk66EBL
+  - https://www.bilibili.com/video/BV12egT6bEqM
+- mVolt+: https://github.com/b00nz/mVolt/
+- Overclock.net RTX 5090 Owners Club:
+  https://www.overclock.net/threads/official-nvidia-rtx-5090-owners-club.1814246/page-1974#replies
+
+## License
+
+MIT (for the clean refactor). Reverse-engineered layouts are driver-specific
+and provided as-is.

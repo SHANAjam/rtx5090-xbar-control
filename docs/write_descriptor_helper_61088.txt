@@ -1,0 +1,160 @@
+00202140: push rbx
+00202142: sub rsp, 0x20
+00202146: movzx r8d, dl
+0020214a: mov rbx, rcx
+0020214d: sub r8d, 3
+00202151: je 0x1802021e2
+00202157: sub r8d, 1
+0020215b: je 0x1802021d6
+0020215d: sub r8d, 1
+00202161: je 0x1802021ca
+00202163: sub r8d, 1
+00202167: je 0x1802021be
+00202169: cmp r8d, 1
+0020216d: je 0x1802021b2
+0020216f: mov rcx, qword ptr [rip + 0x2e50aa]
+00202176: lea rax, [rip + 0x2e50a3]
+0020217d: cmp rcx, rax
+00202180: je 0x1802021a6
+00202182: test dword ptr [rcx + 0x1c], 0x1000000
+00202189: je 0x1802021a6
+0020218b: cmp byte ptr [rcx + 0x19], 3
+0020218f: jb 0x1802021a6
+00202191: mov rcx, qword ptr [rcx + 0x10]
+00202195: lea r8, [rip + 0x283e94]
+0020219c: mov edx, 0x23
+002021a1: call 0x1800022d0
+002021a6: mov dword ptr [rbx], 0xffffffff
+002021ac: add rsp, 0x20
+002021b0: pop rbx
+002021b1: ret 
+002021b2: mov dword ptr [rcx], 4
+002021b8: add rsp, 0x20
+002021bc: pop rbx
+002021bd: ret 
+002021be: mov dword ptr [rcx], 3
+002021c4: add rsp, 0x20
+002021c8: pop rbx
+002021c9: ret 
+002021ca: mov dword ptr [rcx], 2
+002021d0: add rsp, 0x20
+002021d4: pop rbx
+002021d5: ret 
+002021d6: mov dword ptr [rcx], 1
+002021dc: add rsp, 0x20
+002021e0: pop rbx
+002021e1: ret 
+002021e2: mov dword ptr [rcx], 0
+002021e8: add rsp, 0x20
+002021ec: pop rbx
+002021ed: ret 
+002021ee: int3 
+002021ef: int3 
+002021f0: push rbx
+002021f2: sub rsp, 0x20
+002021f6: movzx eax, dl
+002021f9: mov rbx, rcx
+002021fc: dec eax
+002021fe: cmp eax, 0x11
+00202201: ja 0x1802022d0
+00202207: lea rcx, [rip - 0x20220e]
+0020220e: cdqe 
+00202210: mov edx, dword ptr [rcx + rax*4 + 0x202314]
+00202217: add rdx, rcx
+0020221a: jmp rdx
+0020221c: mov dword ptr [rbx], 2
+00202222: add rsp, 0x20
+00202226: pop rbx
+00202227: ret 
+00202228: mov dword ptr [rbx], 0
+0020222e: add rsp, 0x20
+00202232: pop rbx
+00202233: ret 
+00202234: mov dword ptr [rbx], 1
+0020223a: add rsp, 0x20
+0020223e: pop rbx
+0020223f: ret 
+00202240: mov dword ptr [rbx], 5
+00202246: add rsp, 0x20
+0020224a: pop rbx
+0020224b: ret 
+0020224c: mov dword ptr [rbx], 3
+00202252: add rsp, 0x20
+00202256: pop rbx
+00202257: ret 
+00202258: mov dword ptr [rbx], 4
+0020225e: add rsp, 0x20
+00202262: pop rbx
+00202263: ret 
+00202264: mov dword ptr [rbx], 6
+0020226a: add rsp, 0x20
+0020226e: pop rbx
+0020226f: ret 
+00202270: mov dword ptr [rbx], 9
+00202276: add rsp, 0x20
+0020227a: pop rbx
+0020227b: ret 
+0020227c: mov dword ptr [rbx], 7
+00202282: add rsp, 0x20
+00202286: pop rbx
+00202287: ret 
+00202288: mov dword ptr [rbx], 8
+0020228e: add rsp, 0x20
+00202292: pop rbx
+00202293: ret 
+00202294: mov dword ptr [rbx], 0xa
+0020229a: add rsp, 0x20
+0020229e: pop rbx
+0020229f: ret 
+002022a0: mov dword ptr [rbx], 0xb
+002022a6: add rsp, 0x20
+002022aa: pop rbx
+002022ab: ret 
+002022ac: mov dword ptr [rbx], 0xc
+002022b2: add rsp, 0x20
+002022b6: pop rbx
+002022b7: ret 
+002022b8: mov dword ptr [rbx], 0xd
+002022be: add rsp, 0x20
+002022c2: pop rbx
+002022c3: ret 
+002022c4: mov dword ptr [rbx], 0xe
+002022ca: add rsp, 0x20
+002022ce: pop rbx
+002022cf: ret 
+002022d0: mov rcx, qword ptr [rip + 0x2e4f49]
+002022d7: lea rax, [rip + 0x2e4f42]
+002022de: cmp rcx, rax
+002022e1: je 0x180202307
+002022e3: test dword ptr [rcx + 0x1c], 0x1000000
+002022ea: je 0x180202307
+002022ec: cmp byte ptr [rcx + 0x19], 3
+002022f0: jb 0x180202307
+002022f2: mov rcx, qword ptr [rcx + 0x10]
+002022f6: lea r8, [rip + 0x283d33]
+002022fd: mov edx, 0xf
+00202302: call 0x1800022d0
+00202307: mov dword ptr [rbx], 0xffffffff
+0020230d: add rsp, 0x20
+00202311: pop rbx
+00202312: ret 
+00202313: nop 
+00202314: sbb al, 0x22
+00202316: and byte ptr [rax], al
+00202318: sub byte ptr [rdx], ah
+0020231a: and byte ptr [rax], al
+0020231c: xor al, 0x22
+0020231e: and byte ptr [rax], al
+00202320: and spl, byte ptr [rax]
+00202323: add byte ptr [rdx + riz + 0x20], cl
+00202327: add al, dl
+00202329: and ah, byte ptr [rax]
+0020232b: add byte ptr [rax + 0x22], bl
+0020232e: and byte ptr [rax], al
+00202330: and ah, byte ptr fs:[rax]
+00202333: add byte ptr [rax + 0x22], dh
+00202336: and byte ptr [rax], al
+00202338: jl 0x18020235c
+0020233a: and byte ptr [rax], al
+0020233c: shl byte ptr [rdx], 1
+0020233e: and byte ptr [rax], al

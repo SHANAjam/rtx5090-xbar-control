@@ -1,0 +1,11 @@
+{
+  "clk_get": ["0xF58938F5"],
+  "clk_set": ["0xD14B69CF"],
+  "prop_get": ["0xCBFF71D0"],
+  "prop_set": ["0xEF3D20EA"],
+  "vf_info": ["0x8895B510"],
+  "vf_status": ["0x7FEE9032"],
+  "vf_get": ["0xDA025C3E"],
+  "vf_set": ["0xFEC00D04"],
+  "perf_get": ["0xEFCEDD1F"]
+}

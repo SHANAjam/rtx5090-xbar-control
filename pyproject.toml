@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xbar5090"
+version = "0.2.1"
+description = "Windows runtime control for NVIDIA RTX 50-series XBAR clock/MSVDD/propagation ratio and V/F points via private NvAPI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "DSH/DeepSeek harness" }]
+keywords = [
+    "nvidia", "rtx5090", "rtx5080", "rtx5070", "rtx5060", "rtx5050",
+    "blackwell", "xbar", "overclocking", "nvapi", "gpu", "windows",
+    "lact", "mvolt", "vbios", "clock", "voltage",
+]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Hardware",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+xbar5090 = "xbar5090.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

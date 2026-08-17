@@ -1,0 +1,46 @@
+{
+  "driver_prefix": "572.16/576.02/580.88/581.42/591.86/596.49/610.62/610.88",
+  "clk_domains": {
+    "get": 4119410933,
+    "set": 3511380431,
+    "version": 156068,
+    "bufsize": 77824,
+    "mask": 255,
+    "entry_base": 292,
+    "entry_stride": 772,
+    "xbar_domain_index": 1,
+    "off_freq_khz": 276,
+    "off_msvdd_uv": 284
+  },
+  "prop_rels": {
+    "get": 3422515664,
+    "set": 4013760746,
+    "version": 67420,
+    "bufsize": 131072,
+    "entry_base": 100,
+    "entry_stride": 264,
+    "off_ratio": 4,
+    "default_ratio_raw": 58976
+  },
+  "vf_points": {
+    "info": 2291512592,
+    "status": 2146340914,
+    "get_control": 3657587774,
+    "set_control": 4273999108,
+    "info_ver": 493060,
+    "status_ver": 2000388,
+    "ctrl_ver": 4670980,
+    "status_rec_base": 772,
+    "status_rec_stride": 488,
+    "ctrl_rec_base": 772,
+    "ctrl_rec_stride": 1060,
+    "xbar_start": 127,
+    "xbar_end": 253
+  },
+  "perf": {
+    "get": 4023311647,
+    "version": 473228
+  },
+  "detected_driver": "610.88",
+  "probe_ok": true
+}
