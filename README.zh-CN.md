@@ -51,7 +51,7 @@ mVolt+ 可以设置 XBAR 偏移、MSVDD、NVVDD。但在这张验证卡上，单
 
 - NVIDIA RTX 5090（GB202）
 - Windows 10/11 x64
-- 特定驱动分支（`nv_dispi.inf_amd64_6f3cfb7117944855`）
+- 已验证驱动：**610.62** 和 **610.88**（610.88 已通过 `crack`/`probe` 验证，NvAPI 布局一致）
 - 使用 mVolt+ v0.32 作为电压基础和时钟观察
 
 ## 下载
@@ -125,8 +125,16 @@ python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000
 python run.py set-ratio --ratio 1.2
 
 # 设置 XBAR V/F 范围（管理员）
-python run.py vfp-set-range --start 225 --end 245 --freq-khz 88000
+python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
 ```
+
+所有写命令都支持 `--force-driver`，可跳过驱动版本检查：
+
+```powershell
+python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000 --force-driver
+```
+
+> **危险**：`--force-driver` 仅限明确知道 NvAPI 布局兼容的人使用。如果布局变了，写入可能损坏时钟/电压。
 
 使用 AI 助手时，可以把 `status` 的输出贴给它，让它根据你的目标值生成正确的命令。
 
@@ -148,18 +156,25 @@ python run.py vfp-set-range --start 225 --end 245 --freq-khz 88000
 
 ## 驱动版本
 
-验证过的驱动版本：**610.62**（Windows）。
+验证过的驱动版本：**610.62** 和 **610.88**（Windows）。
 
-驱动分支路径：
-`nv_dispi.inf_amd64_6f3cfb7117944855`
+更新驱动后运行：
+
+```powershell
+python run.py crack
+```
+
+`crack` 会从 `candidates.json` 中匹配新驱动的 NvAPI ID（只读探测）。匹配通过即可视为兼容。如果仍要在未验证驱动上写入，请在写命令后加 `--force-driver`。
 
 ## 跨版本兼容
 
-**未解决。** 私有 NvAPI 结构布局是驱动分支相关的。如果使用不同驱动：
+私有 NvAPI 结构布局是驱动分支相关的。请使用：
 
-- 先运行 `python run.py status`，确认 XBAR/MSVDD/ratio 是否读出合理值。
-- 如果值为 0 或报错，**不要写**。
-- 使用写命令前，请针对你的驱动重新验证布局。
+- `python run.py probe` — 只读验证已知布局是否仍有效。
+- `python run.py crack` — 只读自动匹配候选 ID。
+- `--force-driver` — 跳过驱动检查（危险，仅限专家）。
+
+如果值为 0 或报错，**不要写**，除非你完全了解风险。
 
 ## 参考链接
 

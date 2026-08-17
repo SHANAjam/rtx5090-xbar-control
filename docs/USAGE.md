@@ -9,7 +9,7 @@ MSVDD voltage, propagation ratio, and V/F points on an RTX 5090.
 
 - Windows 10/11 x64
 - RTX 5090 (GB202)
-- Validated driver: 610.62 (other drivers may not work)
+- Validated drivers: 610.62 and 610.88 (other drivers may not work; use `--force-driver` only at your own risk)
 - Administrator PowerShell
 - Python 3.10+ if running from source (not needed for prebuilt exe)
 
@@ -122,6 +122,12 @@ VF offset    : 0
 ## Advanced commands
 
 ```powershell
+# After a driver update, verify the known NvAPI layout still works (read-only)
+python run.py probe
+
+# Auto-match known NvAPI IDs from candidates.json (read-only)
+python run.py crack
+
 # Reset everything to driver defaults (admin)
 python run.py reset
 
@@ -131,6 +137,9 @@ python run.py snapshot
 # Restore a full snapshot (admin)
 python run.py restore-snapshot --snapshot backups\snapshot_xxx.json
 
+# Skip driver version check (dangerous, only for experts)
+python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000 --force-driver
+
 # Choose a GPU (default 0)
 python run.py --gpu 0 status
 python run.py --gpu 0 wizard
@@ -138,11 +147,15 @@ python run.py --gpu 0 wizard
 
 Write commands automatically:
 
-- check the driver version (only 610.62 family is allowed),
+- check the driver version (610.62/610.88 unless `--force-driver` is used),
 - check value ranges,
 - back up before writing,
 - verify readback after writing,
 - roll back if a write fails or readback mismatches.
+
+> **Danger**: `--force-driver` skips the driver check. If the NvAPI layout
+> changed, writing can corrupt clocks/voltages. Use only when you know the
+> layout is compatible.
 
 ## Troubleshooting
 

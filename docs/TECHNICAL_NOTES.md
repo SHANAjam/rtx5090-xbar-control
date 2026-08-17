@@ -1,15 +1,17 @@
 # Technical Notes
 
 These notes summarize the reverse-engineered Windows NvAPI interfaces used by
-this project. They were validated on one RTX 5090 (GB202), driver 610.62,
-Windows.
+this project. They were validated on one RTX 5090 (GB202), drivers 610.62 and
+610.88, Windows. 610.88 was verified with `crack`/`probe`; the NvAPI layout is
+the same as 610.62.
 
 ## Conclusions (short version)
 
 - Windows NvAPI V2 works for XBAR/MSVDD and propagation ratio.
 - The propagation ratio is effective only when V/F and voltage support it.
-- On the validated RTX 5090 / driver 610.62, a stable game configuration
-  was found: `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF 225..245 +88 MHz`
+- On the validated RTX 5090 / driver 610.62/610.88, a stable game
+  configuration was found:
+  `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF 224..253 +88 MHz`
   → ~2970 MHz stable.
 - On that same configuration, 3000 MHz was unstable.
 - PERF limits SET was not found on the validated Windows driver.
@@ -66,6 +68,15 @@ Windows.
 
 - Validated active flat range: `0..647` (648 points).
 - If a machine does not match this, the wizard refuses to continue.
+
+## Driver adaptation
+
+- `python run.py probe` verifies the known NvAPI layout read-only.
+- `python run.py crack` auto-matches NvAPI IDs from `candidates.json`
+  (read-only; only listed candidate IDs are called).
+- Write commands accept `--force-driver` to skip the driver version check.
+  This is dangerous and should only be used when the NvAPI layout is known to
+  be compatible.
 
 ## Pitfalls
 

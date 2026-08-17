@@ -64,7 +64,7 @@ Validated only on:
 
 - NVIDIA RTX 5090 (GB202)
 - Windows 10/11 x64
-- A specific driver branch (`nv_dispi.inf_amd64_6f3cfb7117944855`)
+- Validated drivers: **610.62** and **610.88** (610.88 verified by `crack`/`probe`; same NvAPI layout)
 - mVolt+ v0.32 was used for voltage base and clock observation
 
 ## Download
@@ -154,8 +154,17 @@ python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000
 python run.py set-ratio --ratio 1.2
 
 # Set XBAR V/F range (admin)
-python run.py vfp-set-range --start 225 --end 245 --freq-khz 88000
+python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
 ```
+
+All write commands accept `--force-driver` to skip the driver version check:
+
+```powershell
+python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000 --force-driver
+```
+
+> **Danger**: `--force-driver` is only for users who know the NvAPI layout is
+> compatible. If the layout changed, writes can corrupt clocks/voltages.
 
 When using an AI assistant, you can paste your `status` output to it and ask
 it to generate the correct command for your target values.
@@ -183,20 +192,28 @@ controls on top. Official mVolt+ repository: https://github.com/b00nz/mVolt
 
 ## Driver version
 
-Validated driver version: **610.62** on Windows.
+Validated driver versions: **610.62** and **610.88** on Windows.
 
-Driver branch path:
-`nv_dispi.inf_amd64_6f3cfb7117944855`
+After a driver update, run:
+
+```powershell
+python run.py crack
+```
+
+`crack` matches the driver's NvAPI IDs against `candidates.json` (read-only).
+If it passes, the driver is considered compatible. If you still want to write
+on an unverified driver, add `--force-driver` to write commands.
 
 ## Cross-version compatibility
 
-**Not solved.** The private NvAPI structure layouts are driver-branch
-specific. If you use a different driver:
+The private NvAPI structure layouts are driver-branch specific. Use:
 
-- First run `python run.py status` to see whether XBAR/MSVDD/ratio read
-  plausible values.
-- If values are zero or the command returns an error, **do not write**.
-- Re-verify the layouts for your driver before using write commands.
+- `python run.py probe` — verify the known layout is still valid (read-only).
+- `python run.py crack` — auto-match known candidate IDs (read-only).
+- `--force-driver` — skip the driver check (dangerous, only for experts).
+
+If values are zero or the command returns an error, **do not write** unless
+you fully understand the risk.
 
 ## References
 

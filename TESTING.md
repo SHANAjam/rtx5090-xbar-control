@@ -11,8 +11,8 @@
 |---|---|
 | GPU | NVIDIA GeForce RTX 5090 (GB202, 10de:2b85, subsystem 1043:89e3) |
 | VBIOS | 98.02.2E.40.85 |
-| Driver version | 610.62 |
-| Driver branch | validated `nvapi64_impl.dll` from `nv_dispi.inf_amd64_6f3cfb7117944855` |
+| Driver version | 610.62 and 610.88 (610.88 verified by `crack`/`probe`, same NvAPI layout) |
+| Driver branch | validated `nvapi64_impl.dll` from `nv_dispi.inf_amd64_6f3cfb7117944855` (610.62); 610.88 matched via `crack` |
 | OS | Windows 10/11 x64 |
 | Voltage/clock tool | **mVolt+ v0.32** (used to adjust MSVDD/NVVDD/XBAR and run its built-in boost XBAR test) |
 | Our tools | private NvAPI scripts in this repository |
@@ -55,7 +55,7 @@
      effective.
    - Then run game stability tests.
 9. After using this tool:
-   - XBAR +235 MHz, MSVDD +10 mV, ratio 1.2, VF 225..245 +88 MHz
+   - XBAR +235 MHz, MSVDD +10 mV, ratio 1.2, VF 224..253 +88 MHz
    - Physical XBAR ~2970 MHz stable in game
    - MSVDD stable at ~1.15 V
    - 3000 MHz was unstable and crashed in game.

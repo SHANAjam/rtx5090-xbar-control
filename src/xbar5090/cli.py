@@ -9,6 +9,8 @@ import sys
 from . import backup as backup_mod
 from . import clk_domains, driver_check, prop_rels, safety, vf_points
 from . import perf_limits
+from . import probe
+from . import crack
 from .nvapi import NvApi, bytes_to_buf, buf_to_bytes, get_u32, is_admin
 
 if getattr(sys, "frozen", False):
@@ -23,7 +25,11 @@ def _api(gpu_index: int = 0) -> NvApi:
     return NvApi(gpu_index=gpu_index)
 
 
-def _ensure_supported() -> bool:
+def _ensure_supported(force: bool = False) -> bool:
+    if force:
+        print("WARNING: --force-driver set, skipping driver version check.", file=sys.stderr)
+        print("WARNING: This is dangerous if the NvAPI layout changed.", file=sys.stderr)
+        return True
     ok, msg = driver_check.ensure_supported_driver()
     if not ok:
         print(f"ERROR: {msg}", file=sys.stderr)
@@ -45,7 +51,7 @@ def cmd_set_xbar(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: set-xbar requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported():
+    if not _ensure_supported(args.force_driver):
         return 2
     try:
         safety.check_xbar_freq(args.freq_khz)
@@ -81,7 +87,7 @@ def cmd_set_ratio(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: set-ratio requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported():
+    if not _ensure_supported(args.force_driver):
         return 2
     if args.raw is not None:
         raw = args.raw
@@ -135,7 +141,7 @@ def cmd_vfp_set_range(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: vfp set-range requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported():
+    if not _ensure_supported(args.force_driver):
         return 2
     try:
         safety.check_xbar_freq(args.freq_khz)
@@ -178,7 +184,7 @@ def cmd_vfp_restore(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: vfp restore requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported():
+    if not _ensure_supported(args.force_driver):
         return 2
     buf = backup_mod.load_binary_backup(args.backup, VF_CTRL_SIZE)
     vf_points.set_control(api, buf)
@@ -196,7 +202,7 @@ def cmd_reset(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: reset requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported():
+    if not _ensure_supported(args.force_driver):
         return 2
 
     # Backup current state
@@ -243,7 +249,7 @@ def cmd_restore_snapshot(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: restore-snapshot requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported():
+    if not _ensure_supported(args.force_driver):
         return 2
     snap = backup_mod.load_snapshot(args.snapshot)
     clk_buf = bytes_to_buf(snap["clk_bytes"], clk_domains.CLK_DOMAINS_BUFSIZE)
@@ -330,7 +336,7 @@ def cmd_wizard(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: wizard writes require administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported():
+    if not _ensure_supported(args.force_driver):
         return 2
 
     # Current values
@@ -447,35 +453,52 @@ def cmd_doctor(args, api: NvApi) -> int:
     return 0
 
 
+def cmd_probe(args, api: NvApi) -> int:
+    ok = probe.probe_driver(api)
+    return 0 if ok else 2
+
+
+def cmd_crack(args, api: NvApi) -> int:
+    candidates_path = os.path.join(APP_DIR, "candidates.json")
+    ok = crack.crack_driver(api, candidates_path=candidates_path)
+    return 0 if ok else 2
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="xbar5090", description="RTX 5090 XBAR controls via private NvAPI")
     parser.add_argument("--gpu", type=int, default=0, help="GPU index (default 0)")
     sub = parser.add_subparsers(dest="cmd")
 
+    write_common = argparse.ArgumentParser(add_help=False)
+    write_common.add_argument("--force-driver", action="store_true",
+                              help="skip driver version check (dangerous)")
+
     sub.add_parser("status").set_defaults(func=cmd_status)
-    p_x = sub.add_parser("set-xbar")
+    p_x = sub.add_parser("set-xbar", parents=[write_common])
     p_x.add_argument("--freq-khz", type=int, required=True)
     p_x.add_argument("--msvdd-uv", type=int, default=0)
     p_x.set_defaults(func=cmd_set_xbar)
-    p_r = sub.add_parser("set-ratio")
+    p_r = sub.add_parser("set-ratio", parents=[write_common])
     p_r.add_argument("--ratio", type=float)
     p_r.add_argument("--raw", type=lambda x: int(x, 0))
     p_r.set_defaults(func=cmd_set_ratio)
     sub.add_parser("vfp-status").set_defaults(func=cmd_vfp_status)
-    p_vr = sub.add_parser("vfp-set-range")
+    p_vr = sub.add_parser("vfp-set-range", parents=[write_common])
     p_vr.add_argument("--start", type=int, required=True)
     p_vr.add_argument("--end", type=int, required=True)
     p_vr.add_argument("--freq-khz", type=int, required=True)
     p_vr.set_defaults(func=cmd_vfp_set_range)
-    p_rest = sub.add_parser("vfp-restore")
+    p_rest = sub.add_parser("vfp-restore", parents=[write_common])
     p_rest.add_argument("--backup", required=True)
     p_rest.set_defaults(func=cmd_vfp_restore)
     sub.add_parser("perf").set_defaults(func=cmd_perf)
     sub.add_parser("doctor").set_defaults(func=cmd_doctor)
-    sub.add_parser("wizard", help="interactive setup with ranges and current values").set_defaults(func=cmd_wizard)
-    sub.add_parser("reset", help="reset XBAR/MSVDD/ratio/VF to driver defaults").set_defaults(func=cmd_reset)
+    sub.add_parser("probe", help="auto-verify driver layout after a driver update (read-only)").set_defaults(func=cmd_probe)
+    sub.add_parser("crack", help="auto-match driver function IDs from candidates.json (read-only probing)").set_defaults(func=cmd_crack)
+    sub.add_parser("wizard", parents=[write_common], help="interactive setup with ranges and current values").set_defaults(func=cmd_wizard)
+    sub.add_parser("reset", parents=[write_common], help="reset XBAR/MSVDD/ratio/VF to driver defaults").set_defaults(func=cmd_reset)
     sub.add_parser("snapshot", help="save clk+prop+vf snapshot").set_defaults(func=cmd_snapshot)
-    p_rs = sub.add_parser("restore-snapshot", help="restore clk+prop+vf snapshot")
+    p_rs = sub.add_parser("restore-snapshot", parents=[write_common], help="restore clk+prop+vf snapshot")
     p_rs.add_argument("--snapshot", required=True)
     p_rs.set_defaults(func=cmd_restore_snapshot)
 
