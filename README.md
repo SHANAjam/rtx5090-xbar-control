@@ -168,6 +168,9 @@ python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000
 
 # Or manually specify a range (admin)
 python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
+
+# Run the XBAR L2 data-integrity stability test
+python run.py l2-test
 ```
 
 ## Force option (`--force-driver`)

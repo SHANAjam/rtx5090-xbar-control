@@ -137,6 +137,9 @@ python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --width 20
 # Or fully manual: specify your own VF range (admin)
 python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
 
+# Run the XBAR L2 data-integrity stability test
+python run.py l2-test
+
 # Reset everything to driver defaults (admin)
 python run.py reset
 
@@ -147,15 +150,19 @@ python run.py snapshot
 python run.py restore-snapshot --snapshot backups\snapshot_xxx.json
 
 # Skip driver version check (dangerous, only for experts)
-python run.py set-xbar --freq-khz 228000 --msvdd-uv 10000 --force-driver
+python run.py set-xbar --freq-khz 215000 --msvdd-uv 10000 --force-driver
 
 # Skip step/validated confirmation prompts (for scripts/automation)
-python run.py set-xbar --freq-khz 228000 --msvdd-uv 10000 --yes
+python run.py set-xbar --freq-khz 215000 --msvdd-uv 10000 --yes
 
 # Choose a GPU (default 0)
 python run.py --gpu 0 status
 python run.py --gpu 0 wizard
 ```
+
+After the wizard applies settings, it asks whether to run the L2 stability
+test. This test can crash the system if the XBAR setting is unstable, so it is
+optional.
 
 Write commands automatically:
 

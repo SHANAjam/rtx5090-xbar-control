@@ -71,6 +71,19 @@ the same as 610.62.
   preceded by the descriptor `0x00010100`. This is used as a best-effort
   fingerprint check; other VBIOS may differ.
 
+## L2 stability test
+
+The bundled L2 data-integrity checker is a direct implementation of the
+"Minimal XBAR stability check" published by **Loong0x00** in LACT issue #1147:
+
+https://github.com/ilya-zlobintsev/LACT/issues/1147
+
+The original PTX kernel uses `ld.global.cg.u32` random L2 reads over a 32 MiB
+buffer, atomically counting mismatches. The project bundles this as
+`l2-test` and the wizard can run it after applying settings. A crash during
+the test means the current XBAR configuration is unstable; zero errors and no
+new `nvlddmkm` events means it passes.
+
 ## Environment detection
 
 - Validated active flat range: `0..647` (648 points).

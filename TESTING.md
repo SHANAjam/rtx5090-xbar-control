@@ -95,6 +95,21 @@
 | +250 MHz | ~2985 MHz (crashed in game) |
 | +257 MHz | ~3000 MHz (unstable; L2/crash risk) |
 
+### L2 stability step search (driver 610.88, 2026-08-17, chronological)
+
+All runs use VF auto wide range +88, MSVDD +10 mV, ratio 1.2.
+
+| Time | XBAR offset | L2 result |
+|---|---|---|
+| 15:58 | +228 MHz | ❌ system crash |
+| 16:02 | +178 MHz | ✅ PASS, 0 errors |
+| 16:03 | +203 MHz | ✅ PASS, 0 errors |
+| 16:03 | +215 MHz | ✅ PASS, 0 errors |
+| 16:04 | +221 MHz | ❌ system crash |
+
+Conclusion for this card/driver: **+215 MHz is the highest tested L2-stable
+XBAR offset** under the bundled L2 stress test.
+
 ## Conclusions
 
 - mVolt+ already supports XBAR offset, MSVDD, and NVVDD. This project does not

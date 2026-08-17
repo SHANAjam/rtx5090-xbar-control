@@ -11,6 +11,7 @@ from . import clk_domains, driver_check, prop_rels, safety, vf_points
 from . import perf_limits
 from . import probe
 from . import crack
+from . import l2test
 from .nvapi import NvApi, bytes_to_buf, buf_to_bytes, get_u32, i32, is_admin
 
 if getattr(sys, "frozen", False):
@@ -222,8 +223,8 @@ def cmd_set_ratio(args, api: NvApi) -> int:
         print("Cancelled.", file=sys.stderr)
         return 1
 
-    if not prop_rels.validate_prop_rels(api):
-        print("ERROR: PropRels GET_INFO failed; refusing to write ratio.", file=sys.stderr)
+    if not getattr(args, "force_driver", False) and not prop_rels.validate_prop_rels(api):
+        print("ERROR: PropRels GET_INFO/GET_CONTROL validation failed; refusing to write ratio.", file=sys.stderr)
         return 2
 
     prop_buf, old_r = prop_rels.read_prop_rels(api)
@@ -666,8 +667,8 @@ def cmd_wizard(args, api: NvApi) -> int:
         print("Cancelled.")
         return 1
 
-    if not prop_rels.validate_prop_rels(api):
-        print("ERROR: PropRels GET_INFO failed; refusing to apply.", file=sys.stderr)
+    if not getattr(args, "force_driver", False) and not prop_rels.validate_prop_rels(api):
+        print("ERROR: PropRels GET_INFO/GET_CONTROL validation failed; refusing to apply.", file=sys.stderr)
         return 2
 
     # Backups
@@ -704,6 +705,13 @@ def cmd_wizard(args, api: NvApi) -> int:
         return 3
 
     print("Applied.")
+    if getattr(args, "yes", False):
+        print("--yes specified; skipping optional L2 test.")
+    else:
+        ans = input("Run L2 stability test now? [y/N] ").strip().lower()
+        if ans in ("y", "yes"):
+            ok = l2test.run_l2_test()
+            return 0 if ok else 1
     return 0
 
 
@@ -738,6 +746,15 @@ def cmd_crack(args, api: NvApi) -> int:
     candidates_path = os.path.join(APP_DIR, "candidates.json")
     ok = crack.crack_driver(api, candidates_path=candidates_path)
     return 0 if ok else 2
+
+
+def cmd_l2_test(args, api: NvApi) -> int:
+    ok = l2test.run_l2_test(
+        blocks=args.blocks, threads=args.threads,
+        stress_iters=args.stress_iters,
+        idle_rounds=args.idle_rounds, load_rounds=args.load_rounds,
+    )
+    return 0 if ok else 1
 
 
 def main(argv=None) -> int:
@@ -779,6 +796,13 @@ def main(argv=None) -> int:
     sub.add_parser("doctor").set_defaults(func=cmd_doctor)
     sub.add_parser("probe", help="auto-verify driver layout after a driver update (read-only)").set_defaults(func=cmd_probe)
     sub.add_parser("crack", help="auto-match driver function IDs from candidates.json (read-only probing)").set_defaults(func=cmd_crack)
+    p_l2 = sub.add_parser("l2-test", help="run XBAR L2 data-integrity stability test")
+    p_l2.add_argument("--blocks", type=int, default=1360)
+    p_l2.add_argument("--threads", type=int, default=256)
+    p_l2.add_argument("--stress-iters", type=int, default=100000)
+    p_l2.add_argument("--idle-rounds", type=int, default=3)
+    p_l2.add_argument("--load-rounds", type=int, default=3)
+    p_l2.set_defaults(func=cmd_l2_test)
     sub.add_parser("wizard", parents=[write_common], help="interactive setup with ranges and current values").set_defaults(func=cmd_wizard)
     sub.add_parser("reset", parents=[write_common], help="reset XBAR/MSVDD/ratio/VF to driver defaults").set_defaults(func=cmd_reset)
     sub.add_parser("snapshot", help="save clk+prop+vf snapshot").set_defaults(func=cmd_snapshot)

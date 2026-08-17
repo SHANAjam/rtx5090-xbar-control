@@ -31,34 +31,45 @@ KNOWN_RELATIONSHIP_DESC = 0x00010100
 
 
 def validate_prop_rels(api: NvApi) -> bool:
-    """Call GET_INFO and verify the relationship entry fingerprint.
+    """Strict GET_INFO + GET_CONTROL validation before any ratio write.
 
-    This is a deeper best-effort check than rc==0. On the validated driver,
-    the GET_INFO buffer contains the default ratio raw 0xE660 and the u32
-    immediately before it is the relationship descriptor 0x00010100.
+    Per the upstream LACT guidance, a write is only allowed if:
+      1. GET_INFO returns success and its version header matches.
+      2. The default ratio raw 0xE660 is present in GET_INFO.
+      3. The u32 immediately before it matches the validated relationship
+         descriptor 0x00010100.
 
-    If the descriptor differs, we warn but do not hard-block: other VBIOS may
-    encode it differently. The warning is printed to stderr so the user knows
-    the relationship was not positively matched.
+    If any check fails, this returns False and the caller must refuse to
+    write unless the user explicitly used --force-driver.
     """
-    import sys as _sys
     try:
-        buf = make_buffer(PROP_RELS_GET_INFO_VER)
-        set_u32(buf, 0, PROP_RELS_GET_INFO_VER)
-        rc = api.call(PROP_RELS_GET_INFO, buf)
+        info = make_buffer(PROP_RELS_GET_INFO_VER)
+        set_u32(info, 0, PROP_RELS_GET_INFO_VER)
+        rc = api.call(PROP_RELS_GET_INFO, info)
         if rc != 0:
             return False
+        if get_u32(info, 0) != PROP_RELS_GET_INFO_VER:
+            return False
         # Locate the default ratio raw value.
-        for off in range(4, len(bytes(buf)) - 4, 4):
-            if get_u32(buf, off) == DEFAULT_RATIO_RAW:
-                desc = get_u32(buf, off - 4)
-                if desc == KNOWN_RELATIONSHIP_DESC:
-                    return True
-                print(f"WARNING: relationship descriptor {desc:#x} differs from "
-                      f"validated {KNOWN_RELATIONSHIP_DESC:#x}.", file=_sys.stderr)
-                return True
-        print("WARNING: could not locate default ratio raw 0xE660 in GET_INFO.",
-              file=_sys.stderr)
+        found = False
+        for off in range(4, len(bytes(info)) - 4, 4):
+            if get_u32(info, off) == DEFAULT_RATIO_RAW:
+                desc = get_u32(info, off - 4)
+                if desc != KNOWN_RELATIONSHIP_DESC:
+                    return False
+                found = True
+                break
+        if not found:
+            return False
+
+        ctrl = make_buffer(PROP_RELS_BUFSIZE)
+        set_u32(ctrl, 0, PROP_RELS_VERSION)
+        set_u32(ctrl, 4, PROP_RELS_MASK)
+        rc = api.call(PROP_RELS_GET_CONTROL, ctrl)
+        if rc != 0:
+            return False
+        if get_u32(ctrl, 0) != PROP_RELS_VERSION:
+            return False
         return True
     except Exception:
         return False
