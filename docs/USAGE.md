@@ -97,6 +97,21 @@ Ratio        : 0.9
 VF offset    : 0
 ```
 
+## Advanced commands
+
+```powershell
+# Reset everything to driver defaults (admin)
+python run.py reset
+```
+
+Write commands automatically:
+
+- check the driver version (only 610.62 family is allowed),
+- check value ranges,
+- back up before writing,
+- verify readback after writing,
+- roll back if a write fails or readback mismatches.
+
 ## Troubleshooting
 
 - If `status` returns zeros or errors, your driver layout is not recognized.

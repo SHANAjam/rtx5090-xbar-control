@@ -7,7 +7,7 @@ import os
 import sys
 
 from . import backup as backup_mod
-from . import clk_domains, prop_rels, vf_points
+from . import clk_domains, driver_check, prop_rels, safety, vf_points
 from . import perf_limits
 from .nvapi import NvApi, bytes_to_buf, buf_to_bytes, get_u32, is_admin
 
@@ -17,6 +17,14 @@ VF_CTRL_SIZE = vf_points.VF_CTRL_VER
 
 def _api() -> NvApi:
     return NvApi()
+
+
+def _ensure_supported() -> bool:
+    ok, msg = driver_check.ensure_supported_driver()
+    if not ok:
+        print(f"ERROR: {msg}", file=sys.stderr)
+        return False
+    return True
 
 
 def cmd_status(args, api: NvApi) -> int:
@@ -33,6 +41,15 @@ def cmd_set_xbar(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: set-xbar requires administrator.", file=sys.stderr)
         return 2
+    if not _ensure_supported():
+        return 2
+    try:
+        safety.check_xbar_freq(args.freq_khz)
+        safety.check_msvdd(args.msvdd_uv)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+
     _, old_f, old_m = clk_domains.read_clock_domains(api)
     _, old_r = prop_rels.read_prop_rels(api)
     # backup
@@ -42,10 +59,16 @@ def cmd_set_xbar(args, api: NvApi) -> int:
                                   {"kind": "clk_domains", "freq_khz": old_f, "msvdd_uv": old_m})
     backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_set_xbar_pre", prop_buf,
                                   {"kind": "prop_rels", "ratio_raw": old_r})
-    old_f, old_m, new_f, new_m = clk_domains.write_clock_domains(api, args.freq_khz, args.msvdd_uv)
+    try:
+        old_f, old_m, new_f, new_m = clk_domains.write_clock_domains(api, args.freq_khz, args.msvdd_uv)
+    except Exception as e:
+        clk_domains.restore_from_buf(api, clk_buf)
+        print(f"ERROR: write failed, rolled back: {e}", file=sys.stderr)
+        return 3
     print(f"XBAR {old_f} -> {new_f} kHz, MSVDD {old_m} -> {new_m} uV")
     if new_f != args.freq_khz or new_m != args.msvdd_uv:
-        print("WARNING: readback mismatch!", file=sys.stderr)
+        clk_domains.restore_from_buf(api, clk_buf)
+        print("ERROR: readback mismatch, rolled back.", file=sys.stderr)
         return 3
     return 0
 
@@ -54,15 +77,32 @@ def cmd_set_ratio(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: set-ratio requires administrator.", file=sys.stderr)
         return 2
+    if not _ensure_supported():
+        return 2
     if args.raw is not None:
         raw = args.raw
+        if not (0 <= raw <= 2 * 65536):
+            print("ERROR: ratio raw out of range.", file=sys.stderr)
+            return 2
     else:
+        if not (0.0 <= args.ratio <= 2.0):
+            print("ERROR: ratio out of range.", file=sys.stderr)
+            return 2
         raw = prop_rels.ratio_float_to_raw(args.ratio)
-    _, old_r = prop_rels.read_prop_rels(api)
-    _, new_r = prop_rels.write_prop_rels(api, raw)
+
+    prop_buf, old_r = prop_rels.read_prop_rels(api)
+    backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_set_ratio_pre", prop_buf,
+                                  {"kind": "prop_rels", "ratio_raw": old_r})
+    try:
+        _, new_r = prop_rels.write_prop_rels(api, raw)
+    except Exception as e:
+        prop_rels.restore_from_buf(api, prop_buf)
+        print(f"ERROR: write failed, rolled back: {e}", file=sys.stderr)
+        return 3
     print(f"Ratio raw {old_r} -> {new_r} ({prop_rels.ratio_raw_to_float(new_r):.6f})")
     if new_r != raw:
-        print("WARNING: readback mismatch!", file=sys.stderr)
+        prop_rels.restore_from_buf(api, prop_buf)
+        print("ERROR: readback mismatch, rolled back.", file=sys.stderr)
         return 3
     return 0
 
@@ -91,12 +131,41 @@ def cmd_vfp_set_range(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: vfp set-range requires administrator.", file=sys.stderr)
         return 2
+    if not _ensure_supported():
+        return 2
+    try:
+        safety.check_xbar_freq(args.freq_khz)
+        if not (0 <= args.start <= args.end <= 2047):
+            raise ValueError("VF range must satisfy 0 <= start <= end <= 2047")
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+
     active = vf_points.active_mask(api)
     pre = vf_points.get_control(api, active)
     backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_vfp_set_pre", pre,
                                   {"kind": "vf_control", "start": args.start, "end": args.end,
                                    "freq_khz": args.freq_khz})
-    after = vf_points.set_xbar_range(api, args.start, args.end, args.freq_khz)
+    try:
+        after = vf_points.set_xbar_range(api, args.start, args.end, args.freq_khz)
+    except Exception as e:
+        vf_points.set_control(api, pre)
+        print(f"ERROR: write failed, rolled back: {e}", file=sys.stderr)
+        return 3
+
+    # Readback compare each modified flat.
+    bad = []
+    for flat in range(args.start, args.end + 1):
+        rec = vf_points.CTRL_REC_BASE + flat * vf_points.CTRL_REC_STRIDE
+        if get_u32(after, rec) != 0xD:
+            continue
+        got = _i32(get_u32(after, rec + 0x38))
+        if got != args.freq_khz:
+            bad.append((flat, got))
+    if bad:
+        vf_points.set_control(api, pre)
+        print(f"ERROR: readback mismatch on flats {bad[:10]}, rolled back.", file=sys.stderr)
+        return 3
     print("Readback OK.")
     return 0
 
@@ -104,6 +173,8 @@ def cmd_vfp_set_range(args, api: NvApi) -> int:
 def cmd_vfp_restore(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: vfp restore requires administrator.", file=sys.stderr)
+        return 2
+    if not _ensure_supported():
         return 2
     buf = backup_mod.load_binary_backup(args.backup, VF_CTRL_SIZE)
     vf_points.set_control(api, buf)
@@ -113,6 +184,43 @@ def cmd_vfp_restore(args, api: NvApi) -> int:
         print("RESTORE FAIL: readback mismatch", file=sys.stderr)
         return 3
     print("RESTORE PASS")
+    return 0
+
+
+def cmd_reset(args, api: NvApi) -> int:
+    """Reset XBAR/MSVDD/ratio/VF to driver defaults (one command)."""
+    if not is_admin():
+        print("ERROR: reset requires administrator.", file=sys.stderr)
+        return 2
+    if not _ensure_supported():
+        return 2
+
+    # Backup current state
+    clk_buf, old_f, old_m = clk_domains.read_clock_domains(api)
+    prop_buf, old_r = prop_rels.read_prop_rels(api)
+    active = vf_points.active_mask(api)
+    vf_pre = vf_points.get_control(api, active)
+    backup_mod.save_binary_backup(BACKUP_DIR, "reset_clk_pre", clk_buf,
+                                  {"kind": "clk_domains", "freq_khz": old_f, "msvdd_uv": old_m})
+    backup_mod.save_binary_backup(BACKUP_DIR, "reset_prop_pre", prop_buf,
+                                  {"kind": "prop_rels", "ratio_raw": old_r})
+    backup_mod.save_binary_backup(BACKUP_DIR, "reset_vf_pre", vf_pre, {"kind": "vf_control"})
+
+    try:
+        clk_domains.write_clock_domains(api, 0, 0)
+        prop_rels.write_prop_rels(api, prop_rels.DEFAULT_RATIO_RAW)
+        bank = vf_points.detect_xbar_bank(api)
+        if bank is None:
+            raise RuntimeError("cannot detect XBAR bank for reset")
+        vf_points.set_xbar_range(api, bank[0], bank[1], 0)
+    except Exception as e:
+        clk_domains.restore_from_buf(api, clk_buf)
+        prop_rels.restore_from_buf(api, prop_buf)
+        vf_points.set_control(api, vf_pre)
+        print(f"ERROR: reset failed, rolled back: {e}", file=sys.stderr)
+        return 3
+
+    print("Reset to driver defaults: XBAR 0, MSVDD 0, ratio 0.9, VF 0.")
     return 0
 
 
@@ -166,6 +274,8 @@ def _prompt_float(label: str, current: float, lo: float, hi: float) -> float:
 def cmd_wizard(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: wizard writes require administrator.", file=sys.stderr)
+        return 2
+    if not _ensure_supported():
         return 2
 
     # Current values
@@ -244,10 +354,17 @@ def cmd_wizard(args, api: NvApi) -> int:
     backup_mod.save_binary_backup(BACKUP_DIR, "wizard_prop_pre", prop_buf, {"kind": "prop_rels"})
     backup_mod.save_binary_backup(BACKUP_DIR, "wizard_vf_pre", vf_pre, {"kind": "vf_control"})
 
-    # Apply
-    clk_domains.write_clock_domains(api, new_freq, new_msvdd)
-    prop_rels.write_prop_rels(api, prop_rels.ratio_float_to_raw(new_ratio))
-    vf_points.set_xbar_range(api, new_vf_start, new_vf_end, new_vf_freq)
+    # Apply with rollback on failure
+    try:
+        clk_domains.write_clock_domains(api, new_freq, new_msvdd)
+        prop_rels.write_prop_rels(api, prop_rels.ratio_float_to_raw(new_ratio))
+        vf_points.set_xbar_range(api, new_vf_start, new_vf_end, new_vf_freq)
+    except Exception as e:
+        clk_domains.restore_from_buf(api, clk_buf)
+        prop_rels.restore_from_buf(api, prop_buf)
+        vf_points.set_control(api, vf_pre)
+        print(f"ERROR: apply failed, rolled back: {e}", file=sys.stderr)
+        return 3
 
     print("Applied.")
     return 0
@@ -300,6 +417,7 @@ def main(argv=None) -> int:
     sub.add_parser("perf").set_defaults(func=cmd_perf)
     sub.add_parser("doctor").set_defaults(func=cmd_doctor)
     sub.add_parser("wizard", help="interactive setup with ranges and current values").set_defaults(func=cmd_wizard)
+    sub.add_parser("reset", help="reset XBAR/MSVDD/ratio/VF to driver defaults").set_defaults(func=cmd_reset)
 
     args = parser.parse_args(argv)
     try:

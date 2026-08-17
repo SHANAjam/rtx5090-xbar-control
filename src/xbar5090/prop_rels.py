@@ -35,6 +35,12 @@ def read_prop_rels(api: NvApi):
     return buf, raw
 
 
+def restore_from_buf(api: NvApi, buf) -> None:
+    rc = api.call(PROP_RELS_SET_CONTROL, buf)
+    if rc != 0:
+        raise RuntimeError(f"PropRels restore failed rc={rc}")
+
+
 def write_prop_rels(api: NvApi, raw_ratio: int):
     buf, old_raw = read_prop_rels(api)
     set_u32(buf, PROP_ENTRY_BASE + PROP_OFF_RATIO, raw_ratio & 0xFFFFFFFF)

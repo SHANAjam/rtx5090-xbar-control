@@ -35,6 +35,12 @@ def read_clock_domains(api: NvApi):
     return buf, _i32(freq), _i32(msvdd)
 
 
+def restore_from_buf(api: NvApi, buf) -> None:
+    rc = api.call(CLK_DOMAINS_SET_CONTROL, buf)
+    if rc != 0:
+        raise RuntimeError(f"ClkDomains restore failed rc={rc}")
+
+
 def write_clock_domains(api: NvApi, freq_khz: int, msvdd_uv: int):
     buf, old_freq, old_msvdd = read_clock_domains(api)
     base = CLK_DOMAIN_ENTRY_BASE + XBAR_DOMAIN_INDEX * CLK_DOMAIN_ENTRY_STRIDE

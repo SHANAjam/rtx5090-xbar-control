@@ -65,6 +65,24 @@ Validated only on:
 - A specific driver branch (`nv_dispi.inf_amd64_6f3cfb7117944855`)
 - mVolt+ v0.32 was used for voltage base and clock observation
 
+## Download
+
+Normal users can download the project directly:
+
+1. Open this repository.
+2. Click the green **Code** button.
+3. Click **Download ZIP**.
+4. Extract the ZIP and follow the usage instructions.
+
+## Status / not implemented
+
+- **Packaging as exe / CI / unit tests**: not a priority for this project.
+  It is a personal validation tool, not production software.
+- **Automatic physical MSVDD reading**: not promised. Direct NvAPI reading of
+  physical MSVDD has not been verified yet. The wizard currently asks you to
+  enter MSVDD manually.
+- **Profile system / JSON output**: useful but not urgent. Not implemented yet.
+
 ## Usage
 
 For normal users, use the interactive wizard (requires administrator):
