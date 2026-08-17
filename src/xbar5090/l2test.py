@@ -56,25 +56,42 @@ def _run_round(mode: str, blocks: int, threads: int, stress_iters: int) -> dict:
 
 
 def _gpu_blocks() -> int:
-    """Pick a reasonable block count for the detected RTX 50-series GPU."""
+    """Pick a heuristic block count for the detected RTX 50-series GPU.
+
+    This is approximate: desktop values roughly follow 4-8 blocks per SM.
+    Laptop SKUs use lower values because of power/thermal limits. Users can
+    always override with --blocks.
+    """
     try:
         from . import driver_check
         name = driver_check.get_gpu_name().lower()
     except Exception:
         name = ""
-    table = [
-        ("5090", 1360),
-        ("5080", 800),
-        ("5070 ti", 640),
-        ("5070", 480),
-        ("5060 ti", 384),
-        ("5060", 320),
-        ("5050", 256),
-    ]
+    laptop = "laptop" in name
+    if laptop:
+        table = [
+            ("5090", 640),
+            ("5080", 512),
+            ("5070 ti", 384),
+            ("5070", 320),
+            ("5060 ti", 256),
+            ("5060", 256),
+            ("5050", 192),
+        ]
+    else:
+        table = [
+            ("5090", 1360),
+            ("5080", 800),
+            ("5070 ti", 640),
+            ("5070", 480),
+            ("5060 ti", 384),
+            ("5060", 320),
+            ("5050", 256),
+        ]
     for key, blocks in table:
         if key in name:
             return blocks
-    return 1360
+    return 256
 
 
 def run_l2_test(blocks: int | None = None, threads: int = 256,
