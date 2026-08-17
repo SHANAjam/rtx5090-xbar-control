@@ -124,7 +124,7 @@ The key steps were:
 4. Map buffer writes to structure fields.
 5. Cross-validate across R572..R610.
 
-Raw disassembly dumps are kept out of the repository to keep it small.
+Raw disassembly dumps are intentionally kept in `docs/reverse/` for auditing; they are not loaded by the program.
 
 ## 5. Dynamic layout adaptation
 

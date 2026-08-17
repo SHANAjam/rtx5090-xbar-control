@@ -99,6 +99,11 @@ python run.py profile-apply myprofile --yes
 
 ---
 
+> **Note on autostart**: This tool intentionally does not include an
+> autostart feature. Users who want settings applied at boot should save a
+> profile (`profile-save`) and apply it manually or via their own scheduled
+> task. This is a deliberate safety choice.
+
 ## Suggested starting point
 
 This is **not** a universal setting. It is only a starting point for tuning your own card.

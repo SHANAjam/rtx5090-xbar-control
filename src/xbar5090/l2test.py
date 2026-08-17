@@ -55,12 +55,37 @@ def _run_round(mode: str, blocks: int, threads: int, stress_iters: int) -> dict:
     return {"errors": int(m.group(1)), "elapsed_ms": float(m.group(2))}
 
 
-def run_l2_test(blocks: int = 1360, threads: int = 256,
+def _gpu_blocks() -> int:
+    """Pick a reasonable block count for the detected RTX 50-series GPU."""
+    try:
+        from . import driver_check
+        name = driver_check.get_gpu_name().lower()
+    except Exception:
+        name = ""
+    table = [
+        ("5090", 1360),
+        ("5080", 800),
+        ("5070 ti", 640),
+        ("5070", 480),
+        ("5060 ti", 384),
+        ("5060", 320),
+        ("5050", 256),
+    ]
+    for key, blocks in table:
+        if key in name:
+            return blocks
+    return 1360
+
+
+def run_l2_test(blocks: int | None = None, threads: int = 256,
                 stress_iters: int = 100000,
                 idle_rounds: int = 3, load_rounds: int = 3) -> bool:
     """Run the L2 integrity test. Returns True only if all rounds pass."""
+    if blocks is None:
+        blocks = _gpu_blocks()
     print("=== XBAR L2 stability test ===")
     print("Using checker:", _checker_path())
+    print(f"Using blocks={blocks} threads={threads} (auto-selected if not specified)")
     start_local = time.strftime("%Y-%m-%dT%H:%M:%S")
     all_ok = True
     errors_total = 0

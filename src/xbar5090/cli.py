@@ -777,9 +777,18 @@ def cmd_wizard(args, api: NvApi) -> int:
     active = vf_points.active_mask(api)
     bank = vf_points.detect_xbar_bank(api)
     if bank is None:
-        print("ERROR: could not auto-detect the XBAR V/F bank on this GPU/driver.", file=sys.stderr)
-        print("Refusing to continue. This project may not support this environment.", file=sys.stderr)
-        return 2
+        print("WARNING: could not auto-detect the XBAR V/F bank.", file=sys.stderr)
+        print("You can manually enter the bank range.", file=sys.stderr)
+        try:
+            s = int(input("Enter XBAR V/F bank start (e.g. 127): ").strip())
+            e = int(input("Enter XBAR V/F bank end (e.g. 253): ").strip())
+        except ValueError:
+            print("Invalid input. Cancelled.", file=sys.stderr)
+            return 2
+        if not (0 <= s <= e <= 2047):
+            print("Invalid bank range. Cancelled.", file=sys.stderr)
+            return 2
+        bank = (s, e)
     bank_start, bank_end = bank
     status_buf = vf_points.get_status(api, active)
 
@@ -952,7 +961,7 @@ def cmd_crack(args, api: NvApi) -> int:
 
 def cmd_l2_test(args, api: NvApi) -> int:
     ok = l2test.run_l2_test(
-        blocks=getattr(args, "blocks", 1360),
+        blocks=getattr(args, "blocks", None),
         threads=getattr(args, "threads", 256),
         stress_iters=getattr(args, "stress_iters", 100000),
         idle_rounds=getattr(args, "idle_rounds", 3),
@@ -1010,7 +1019,7 @@ def main(argv=None) -> int:
     sub.add_parser("probe", help="auto-verify driver layout after a driver update (read-only)").set_defaults(func=cmd_probe)
     sub.add_parser("crack", help="auto-match driver function IDs from candidates.json (read-only probing)").set_defaults(func=cmd_crack)
     p_l2 = sub.add_parser("l2-test", help="run XBAR L2 data-integrity stability test")
-    p_l2.add_argument("--blocks", type=int, default=1360)
+    p_l2.add_argument("--blocks", type=int, default=None, help="auto-select by GPU if omitted")
     p_l2.add_argument("--threads", type=int, default=256)
     p_l2.add_argument("--stress-iters", type=int, default=100000)
     p_l2.add_argument("--idle-rounds", type=int, default=3)

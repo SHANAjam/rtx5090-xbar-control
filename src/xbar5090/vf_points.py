@@ -127,9 +127,10 @@ def detect_xbar_bank(api: NvApi, info_id: int = VF_INFO, status_id: int = VF_STA
 
     Returns (start, end) or None if it cannot be identified safely.
 
-    Note: automatic identification is only reliable on the validated GB202
-    layout (active flats 0..647, XBAR bank 127..253). On other layouts this
-    function returns None so the caller can refuse to continue.
+    Note: the primary heuristic (positive total_freq_offset) only works after
+    a VF offset has been applied. On a fresh/reset card the offsets may be
+    zero, so detection falls back to range/profile scanning or the caller may
+    ask the user for the bank manually.
     """
     active = active_mask(api, info_id=info_id)
     if not active:
@@ -217,7 +218,19 @@ def get_status(api: NvApi, active, status_id: int = VF_STATUS):
         raise RuntimeError(f"VF_STATUS failed rc={rc}")
     layout = _find_repeating_dword_layout(buf, 0xD)
     if layout is not None:
-        _STATUS_LAYOUT = layout
+        base, stride = layout
+        # Cross-check: first active records must look like real VF records.
+        ok = True
+        for flat in active[:3]:
+            rec = base + flat * stride
+            if get_u32(buf, rec) != 0xD:
+                ok = False
+                break
+            if get_u32(buf, rec + 0x24) == 0 and get_u32(buf, rec + 0x58) == 0:
+                ok = False
+                break
+        if ok:
+            _STATUS_LAYOUT = layout
     return buf
 
 
@@ -247,7 +260,16 @@ def get_control(api: NvApi, active, get_id: int = VF_GET_CONTROL):
         raise RuntimeError(f"VF_GET_CONTROL failed rc={rc}")
     layout = _find_repeating_dword_layout(buf, 0xD)
     if layout is not None:
-        _CTRL_LAYOUT = layout
+        base, stride = layout
+        # Cross-check: first active records must be XBAR type 0xD.
+        ok = True
+        for flat in active[:3]:
+            rec = base + flat * stride
+            if get_u32(buf, rec) != 0xD:
+                ok = False
+                break
+        if ok:
+            _CTRL_LAYOUT = layout
     return buf
 
 
