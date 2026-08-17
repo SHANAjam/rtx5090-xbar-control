@@ -24,17 +24,19 @@
 
 ## What this adds (compared to mVolt+)
 
-mVolt+ already supports XBAR offset, MSVDD, and NVVDD. This project does
-**not** replace mVolt+. It adds:
+mVolt+ can already set XBAR offset, MSVDD, and NVVDD. However, on the
+validated card, raising XBAR offset in mVolt+ alone caused MSVDD to drop
+(inversion) and XBAR stayed stuck around ~2882 MHz.
 
-| Feature | mVolt+ | This project |
-|---|---|---|
-| XBAR offset | yes | duplicate |
-| MSVDD / NVVDD | yes | duplicate |
-| Propagation ratio (0.9/1.2) | likely no | **added** |
-| 127-point XBAR V/F read/write | likely no | **added** |
-| Open source / scriptable / AI-callable | no (GUI) | **added** |
-| Validated combo that avoids MSVDD inversion | manual trial | **added** |
+This project adds the missing pieces that make the XBAR offset actually work:
+
+- Propagation ratio control (0.9/1.2)
+- 127-point XBAR V/F read/write
+- MSVDD compensation (+10 mV) to avoid the inversion
+- A validated combo:
+  `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF 225..245 +88`
+  → ~2970 MHz stable in game
+- Open source / scriptable / AI-callable
 
 ## What was done
 
