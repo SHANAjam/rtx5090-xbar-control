@@ -93,8 +93,9 @@ Run them from an **administrator** terminal, for example:
 xbar5090.exe wizard
 ```
 
-Both builds contain the same code as the source in this repository. Download
-them only from this repository.
+You can also just **right-click the exe → Run as administrator**; it starts
+the interactive wizard directly. Both builds contain the same code as the
+source in this repository. Download them only from this repository.
 
 ## Antivirus false positive warning
 
