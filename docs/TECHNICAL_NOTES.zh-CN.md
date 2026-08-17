@@ -108,14 +108,13 @@ docs/
 - 使用 32 MiB 缓冲区随机 L2 读取 + 原子错误计数。
 - 集成命令：`l2-test`。
 
-## 4. 反汇编过程与产物
+## 4. 反汇编过程
 
-反汇编过程通过以下内容记录：
+反汇编过程使用：
 
 - 静态表解析：`scripts/validate_nvapi_drivers.py`
 - 偏移推导：`scripts/derive_nvapi_offsets.py`
 - Capstone 反汇编工具：`scripts/disasm_nvapi.py`
-- 原始反汇编产物：[`docs/reverse/`](reverse/)
 
 关键步骤：
 
@@ -125,18 +124,7 @@ docs/
 4. 将 buffer 写入映射到结构体字段。
 5. 跨 R572..R610 交叉验证。
 
-原始文件包括：
-
-```text
-docs/reverse/lookup_102f50_full_61088.txt
-docs/reverse/get_info_real_full_61088.txt
-docs/reverse/get_control_real_full_61088.txt
-docs/reverse/set_control_real_full_61088.txt
-docs/reverse/clk_get_61088.txt
-docs/reverse/vf_status_61088.txt
-docs/reverse/vf_get_61088.txt
-docs/reverse/rtx5090_gameready_direct_links.txt
-```
+原始反汇编文件不放入仓库，以保持仓库精简。
 
 ## 5. 动态布局适配
 

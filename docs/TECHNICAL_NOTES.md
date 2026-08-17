@@ -112,14 +112,13 @@ docs/
 - Uses random L2 reads over a 32 MiB buffer and atomic mismatch counting.
 - Integrated as `l2-test`.
 
-## 4. Reverse engineering process and artifacts
+## 4. Reverse engineering process
 
-The disassembly process is documented through:
+The disassembly process used:
 
 - Static table parsing (`scripts/validate_nvapi_drivers.py`)
 - Offset derivation (`scripts/derive_nvapi_offsets.py`)
 - Capstone disassembly tool (`scripts/disasm_nvapi.py`)
-- Raw disassembly artifacts in [`docs/reverse/`](reverse/)
 
 The key steps were:
 
@@ -129,18 +128,7 @@ The key steps were:
 4. Map buffer writes to structure fields.
 5. Cross-validate across R572..R610.
 
-Raw files include:
-
-```text
-docs/reverse/lookup_102f50_full_61088.txt
-docs/reverse/get_info_real_full_61088.txt
-docs/reverse/get_control_real_full_61088.txt
-docs/reverse/set_control_real_full_61088.txt
-docs/reverse/clk_get_61088.txt
-docs/reverse/vf_status_61088.txt
-docs/reverse/vf_get_61088.txt
-docs/reverse/rtx5090_gameready_direct_links.txt
-```
+Raw disassembly dumps are kept out of the repository to keep it small.
 
 ## 5. Dynamic layout adaptation
 
