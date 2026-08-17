@@ -823,7 +823,7 @@ def cmd_wizard(args, api: NvApi) -> int:
     print("  - Read your physical MSVDD from HWiNFO64 or mVolt+ before continuing.")
     print("  - If you don't know it, 1150 mV is a common starting point on RTX 5090.")
     print("  - Author's stable starting combo (RTX 5090 / driver 610.62/610.88):")
-    print("      XBAR +205 MHz / MSVDD +10 mV / Ratio 1.2 / VF auto wide range +88 MHz (224..253)")
+    print("      XBAR +200 MHz / MSVDD 0 mV / Ratio 1.2 / VF auto wide range +88 MHz (224..253)")
     print("  - If the game crashes, lower XBAR to +178 or +150 first.")
     print("  - Other GPUs/VBIOS may need different values; start lower and verify.")
 

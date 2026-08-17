@@ -17,6 +17,7 @@
 
 ### Changed
 - Safety values renamed to "author's card reference".
+- Daily reference updated to XBAR +200 / MSVDD 0 mV / Ratio 1.2 / VF +88.
 - GPU check now requires confirmation for unlisted RTX 50 models.
 - L2 test block count auto-selects by GPU model.
 - detect_xbar_bank uses a generic positive-offset window heuristic, with manual fallback in wizard.

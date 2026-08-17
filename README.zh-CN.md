@@ -89,7 +89,7 @@ python run.py status --json
 python run.py vfp-status --json
 python run.py perf --json
 python run.py wizard
-python run.py set-xbar --freq-khz 200000 --msvdd-uv 10000 --yes
+python run.py set-xbar --freq-khz 200000 --msvdd-uv 0 --yes
 python run.py set-ratio --ratio 1.2 --yes
 python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --yes
 python run.py l2-test
