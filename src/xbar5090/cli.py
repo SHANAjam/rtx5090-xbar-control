@@ -145,6 +145,15 @@ def _write_cooldown() -> None:
     _last_write_time = time.monotonic()
 
 
+def _pause_for_interactive() -> None:
+    """Keep the console open when launched by double-click/right-click."""
+    try:
+        if sys.stdin is not None and sys.stdin.isatty():
+            input("Press Enter to exit...")
+    except Exception:
+        pass
+
+
 def _ctrl_rec(flat: int) -> int:
     """Return the CONTROL record offset for a flat using the discovered layout."""
     rec_base, rec_stride = vf_points.control_layout()
@@ -739,7 +748,11 @@ def _prompt_float(label: str, current: float, lo: float, hi: float) -> float:
 
 def cmd_wizard(args, api: NvApi) -> int:
     if not is_admin():
+        print("=" * 60, file=sys.stderr)
         print("ERROR: wizard writes require administrator.", file=sys.stderr)
+        print("Please right-click this exe and choose", file=sys.stderr)
+        print("  'Run as administrator'.", file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
         return 2
     if not _ensure_supported_auto(api, args):
         print("Auto-check did not fully pass.", file=sys.stderr)
@@ -1026,8 +1039,15 @@ def main(argv=None) -> int:
         api = _api(args.gpu)
     except Exception as e:
         print(f"Failed to init NvAPI: {e}", file=sys.stderr)
+        if getattr(args, "cmd", None) is None:
+            _pause_for_interactive()
         return 2
-    return args.func(args, api)
+    rc = args.func(args, api)
+    # When launched by double-click / right-click with no subcommand, keep the
+    # console open on failure so the user can read the error.
+    if getattr(args, "cmd", None) is None and rc != 0:
+        _pause_for_interactive()
+    return rc
 
 
 if __name__ == "__main__":
