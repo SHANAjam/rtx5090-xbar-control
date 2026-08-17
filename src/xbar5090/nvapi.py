@@ -89,6 +89,11 @@ def get_u32(buf: ctypes.Array, offset: int) -> int:
     return ctypes.cast(ctypes.byref(buf, offset), ctypes.POINTER(ctypes.c_uint32))[0]
 
 
+def i32(v: int) -> int:
+    v &= 0xFFFFFFFF
+    return v if v < 0x80000000 else v - 0x100000000
+
+
 def buf_to_bytes(buf: ctypes.Array) -> bytes:
     return bytes(buf)
 

@@ -147,7 +147,10 @@ python run.py snapshot
 python run.py restore-snapshot --snapshot backups\snapshot_xxx.json
 
 # Skip driver version check (dangerous, only for experts)
-python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000 --force-driver
+python run.py set-xbar --freq-khz 228000 --msvdd-uv 10000 --force-driver
+
+# Skip step/validated confirmation prompts (for scripts/automation)
+python run.py set-xbar --freq-khz 228000 --msvdd-uv 10000 --yes
 
 # Choose a GPU (default 0)
 python run.py --gpu 0 status
@@ -156,15 +159,21 @@ python run.py --gpu 0 wizard
 
 Write commands automatically:
 
-- check the driver version (610.62/610.88 unless `--force-driver` is used),
-- check value ranges,
+- check the GPU model (only RTX 5090 is validated),
+- check the driver version (610.62/610.88 or a matching `driver_profile.json` unless `--force-driver` is used),
+- warn/confirm when a step exceeds the safe step limit,
+- warn/confirm when a value is outside the validated range,
 - back up before writing,
 - verify readback after writing,
-- roll back if a write fails or readback mismatches.
+- roll back if a write fails or readback mismatches,
+- print the measured physical XBAR clock when available.
 
-> **Danger**: `--force-driver` skips the driver check. If the NvAPI layout
-> changed, writing can corrupt clocks/voltages. Use only when you know the
-> layout is compatible.
+`status` also prints the physical XBAR clock when it can be measured.
+
+> **Danger**: `--force-driver` skips the driver/GPU checks. If the NvAPI layout
+> changed, writing can corrupt clocks/voltages. `--yes` skips step/validated
+> confirmations and is intended for scripts that already know what they are
+> doing.
 
 ## Troubleshooting
 

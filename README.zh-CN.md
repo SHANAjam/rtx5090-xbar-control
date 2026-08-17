@@ -4,6 +4,13 @@
 
 > 🌐 [English](README.md)
 
+> **项目来源 / 致谢**：本项目是 **Loong0x00** 在
+> [LACT #1147](https://github.com/ilya-zlobintsev/LACT/issues/1147) 公开的
+> Linux 成果的 Windows 移植/跟进，Windows NvAPI 入口点由 **Panchovix** 在
+> [LACT PR #1158](https://github.com/ilya-zlobintsev/LACT/pull/1158) 确认。
+> 传播比方法由 Loong0x00 于 2026-08-16 公开，本 Windows 实现次日发布。
+> 这不是从零独立逆向的项目。详见 [docs/TECHNICAL_NOTES.md](docs/TECHNICAL_NOTES.md)。
+
 > **AI 协助声明**：本项目由 AI 软件工程助手（DeepSeek）协助完成。作者不是专业开发者，不精通英文，代码和结论可能有错误。详见 [DISCLAIMER.md](DISCLAIMER.md)。
 
 > **警告**：本项目会修改 GPU 时钟/电压状态，使用风险自负。每次写操作前请备份，写后请读回校验。
@@ -131,13 +138,29 @@ python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000
 python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
 ```
 
-所有写命令都支持 `--force-driver`，可跳过驱动版本检查：
+## 强制选项（`--force-driver`）
+
+所有写命令都支持 `--force-driver`，可跳过驱动/GPU 检查。这是自动检测误判时的逃生通道。
+
+exe 用法（在 exe 所在目录打开管理员终端）：
 
 ```powershell
-python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000 --force-driver
+.\xbar5090.exe wizard --force-driver --yes
 ```
 
-> **危险**：`--force-driver` 仅限明确知道 NvAPI 布局兼容的人使用。如果布局变了，写入可能损坏时钟/电压。
+直接写入：
+
+```powershell
+.\xbar5090.exe set-xbar --freq-khz 228000 --msvdd-uv 10000 --force-driver --yes
+```
+
+源码用法：
+
+```powershell
+python run.py wizard --force-driver --yes
+```
+
+> **危险**：`--force-driver` 会跳过安全检查。只有明确知道 NvAPI 布局兼容才能用。如果布局变了，写入可能损坏时钟/电压。`--yes` 也会跳过步进/验证确认。
 
 使用 AI 助手时，可以把 `status` 的输出贴给它，让它根据你的目标值生成正确的命令。
 

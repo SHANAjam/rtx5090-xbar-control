@@ -11,7 +11,8 @@ from .nvapi import NvApi, get_u32, make_buffer, set_u32
 
 PERF_GET = 0xEFCEDD1F
 PERF_VER = 0x0007388C
-PERF_SIZE = PERF_VER
+# Explicit buffer size; do not assume it always equals the version header.
+PERF_SIZE = 0x0007388C
 
 # User-facing IDs for XBAR max/min on the validated branch.
 XBAR_MAX_USER_ID = 0xD6

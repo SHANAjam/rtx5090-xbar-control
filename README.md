@@ -4,6 +4,16 @@
 
 > 🌐 [中文说明](README.zh-CN.md)
 
+> **Project source / credits**: This project is a Windows port/follow-up of
+> the Linux work published by **Loong0x00** in
+> [LACT #1147](https://github.com/ilya-zlobintsev/LACT/issues/1147) and the
+> Windows NvAPI entry points confirmed by **Panchovix** in
+> [LACT PR #1158](https://github.com/ilya-zlobintsev/LACT/pull/1158).
+> The propagation-ratio method was publicly shared by Loong0x00 on 2026-08-16;
+> this Windows implementation was published the next day. It is not a
+> from-scratch independent reverse engineering project. See
+> [docs/TECHNICAL_NOTES.md](docs/TECHNICAL_NOTES.md) for details.
+
 > **AI assistance disclosure**: This project was produced with the assistance
 > of an AI software engineering harness (DeepSeek). The author is not a
 > professional developer and does not speak English fluently. Code and
@@ -160,14 +170,33 @@ python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000
 python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
 ```
 
-All write commands accept `--force-driver` to skip the driver version check:
+## Force option (`--force-driver`)
+
+All write commands accept `--force-driver` to skip the driver/GPU checks.
+This is the escape hatch when auto-detection refuses a card that you know is
+compatible.
+
+With the exe, open an **administrator** terminal in the exe folder:
 
 ```powershell
-python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000 --force-driver
+.\xbar5090.exe wizard --force-driver --yes
 ```
 
-> **Danger**: `--force-driver` is only for users who know the NvAPI layout is
-> compatible. If the layout changed, writes can corrupt clocks/voltages.
+Or a direct write:
+
+```powershell
+.\xbar5090.exe set-xbar --freq-khz 228000 --msvdd-uv 10000 --force-driver --yes
+```
+
+With source:
+
+```powershell
+python run.py wizard --force-driver --yes
+```
+
+> **Danger**: `--force-driver` skips safety checks. Only use it when you know
+> the NvAPI layout is compatible. If the layout changed, writes can corrupt
+> clocks/voltages. `--yes` also skips step/validated confirmations.
 
 When using an AI assistant, you can paste your `status` output to it and ask
 it to generate the correct command for your target values.

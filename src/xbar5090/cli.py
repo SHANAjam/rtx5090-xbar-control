@@ -11,7 +11,7 @@ from . import clk_domains, driver_check, prop_rels, safety, vf_points
 from . import perf_limits
 from . import probe
 from . import crack
-from .nvapi import NvApi, bytes_to_buf, buf_to_bytes, get_u32, is_admin
+from .nvapi import NvApi, bytes_to_buf, buf_to_bytes, get_u32, i32, is_admin
 
 if getattr(sys, "frozen", False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -34,7 +34,96 @@ def _ensure_supported(force: bool = False) -> bool:
     if not ok:
         print(f"ERROR: {msg}", file=sys.stderr)
         return False
+    ok, msg = driver_check.ensure_supported_gpu()
+    if not ok:
+        print(f"ERROR: {msg}", file=sys.stderr)
+        return False
     return True
+
+
+def _ensure_supported_auto(api: NvApi, args) -> bool:
+    """Like _ensure_supported, but automatically tries crack for unknown drivers."""
+    if getattr(args, "force_driver", False):
+        print("WARNING: --force-driver set, skipping driver/GPU checks.", file=sys.stderr)
+        return True
+    ok, msg = driver_check.ensure_supported_driver()
+    if ok:
+        ok_gpu, msg_gpu = driver_check.ensure_supported_gpu()
+        if not ok_gpu:
+            print(f"ERROR: {msg_gpu}", file=sys.stderr)
+            return False
+        return True
+    # Driver not in known list: auto-verify with crack -> probe -> status.
+    print("Driver not in known list. Running auto-crack...", file=sys.stderr)
+    candidates_path = os.path.join(APP_DIR, "candidates.json")
+    try:
+        if not crack.crack_driver(api, candidates_path=candidates_path):
+            print(f"ERROR: {msg}", file=sys.stderr)
+            return False
+    except Exception as e:
+        print(f"ERROR: auto-crack failed: {e}", file=sys.stderr)
+        return False
+    ok2, msg2 = driver_check.ensure_supported_driver()
+    if not ok2:
+        print(f"ERROR: {msg2}", file=sys.stderr)
+        return False
+    ok_gpu, msg_gpu = driver_check.ensure_supported_gpu()
+    if not ok_gpu:
+        print(f"ERROR: {msg_gpu}", file=sys.stderr)
+        return False
+    # Now run probe (read-only) to confirm the full layout is still valid.
+    if not probe.probe_driver(api):
+        # Gentle mode: crack passed but probe failed. This may be a false
+        # negative on a different VBIOS, so ask the user before refusing.
+        print("WARNING: probe failed after crack. This may be a false negative.", file=sys.stderr)
+        if getattr(args, "yes", False):
+            print("  --yes specified, continuing despite probe failure.", file=sys.stderr)
+        else:
+            ans = input("Type 'yes' to continue despite probe failure: ").strip().lower()
+            if ans not in ("yes", "y"):
+                print("Cancelled.", file=sys.stderr)
+                return False
+    # Show current status so the user sees what is being read.
+    try:
+        cmd_status(args, api)
+    except Exception as e:
+        print(f"WARNING: status display failed: {e}", file=sys.stderr)
+    return True
+
+
+def _confirm_step(args, label: str, delta, limit, unit: str = "kHz") -> bool:
+    """Return True if the step is allowed. Warns/prompts when the step is large."""
+    if abs(delta) <= limit:
+        return True
+    print(f"WARNING: {label} step {delta:+d} {unit} exceeds safety limit {limit} {unit}.",
+          file=sys.stderr)
+    if getattr(args, "yes", False):
+        print("  --yes specified, continuing.", file=sys.stderr)
+        return True
+    ans = input(f"Type 'yes' to continue with this large step: ").strip().lower()
+    return ans in ("yes", "y")
+
+
+def _confirm_validated(args, label: str, is_ok: bool, detail: str) -> bool:
+    """Warn when a value is outside the validated range; ask for confirmation."""
+    if is_ok:
+        return True
+    print(f"WARNING: {label} is outside the validated range: {detail}", file=sys.stderr)
+    if getattr(args, "yes", False):
+        print("  --yes specified, continuing.", file=sys.stderr)
+        return True
+    ans = input(f"Type 'yes' to continue with this unvalidated value: ").strip().lower()
+    return ans in ("yes", "y")
+
+
+def _safe_restore(restore_func, label: str, original_exc: Exception | None = None) -> None:
+    """Run a rollback and report if the rollback itself fails."""
+    try:
+        restore_func()
+    except Exception as rollback_exc:
+        if original_exc is not None:
+            print(f"ERROR: original failure: {original_exc}", file=sys.stderr)
+        print(f"ERROR: rollback of {label} failed: {rollback_exc}", file=sys.stderr)
 
 
 def cmd_status(args, api: NvApi) -> int:
@@ -44,6 +133,11 @@ def cmd_status(args, api: NvApi) -> int:
     print(f"XBAR offset  : {freq/1000:+.0f} MHz")
     print(f"MSVDD offset : {msvdd/1000:+.1f} mV")
     print(f"Ratio        : {ratio:.4f}")
+    try:
+        phys = clk_domains.measure_xbar_khz(api)
+        print(f"Physical XBAR: {phys/1000:.0f} MHz")
+    except Exception as e:
+        print(f"Physical XBAR: unavailable ({e})", file=sys.stderr)
     return 0
 
 
@@ -51,7 +145,7 @@ def cmd_set_xbar(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: set-xbar requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported(args.force_driver):
+    if not _ensure_supported_auto(api, args):
         return 2
     try:
         safety.check_xbar_freq(args.freq_khz)
@@ -60,26 +154,48 @@ def cmd_set_xbar(args, api: NvApi) -> int:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
 
-    _, old_f, old_m = clk_domains.read_clock_domains(api)
-    _, old_r = prop_rels.read_prop_rels(api)
-    # backup
-    clk_buf, _, _ = clk_domains.read_clock_domains(api)
-    prop_buf, _ = prop_rels.read_prop_rels(api)
+    clk_buf, old_f, old_m = clk_domains.read_clock_domains(api)
+    prop_buf, old_r = prop_rels.read_prop_rels(api)
+
+    if not _confirm_step(args, "XBAR", args.freq_khz - old_f, safety.MAX_XBAR_STEP_KHZ):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+    if not _confirm_step(args, "MSVDD", args.msvdd_uv - old_m, safety.MAX_MSVDD_STEP_UV, "uV"):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+    if not _confirm_validated(args, "XBAR offset",
+                              safety.is_validated_xbar(args.freq_khz),
+                              f"{args.freq_khz} kHz"):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+    if not _confirm_validated(args, "MSVDD offset",
+                              safety.is_validated_msvdd(args.msvdd_uv),
+                              f"{args.msvdd_uv} uV"):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+
     backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_set_xbar_pre", clk_buf,
-                                  {"kind": "clk_domains", "freq_khz": old_f, "msvdd_uv": old_m})
+                                  {"kind": "clk_domains", "freq_khz": old_f, "msvdd_uv": old_m,
+                                   "gpu_index": api.gpu_index})
     backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_set_xbar_pre", prop_buf,
-                                  {"kind": "prop_rels", "ratio_raw": old_r})
+                                  {"kind": "prop_rels", "ratio_raw": old_r,
+                                   "gpu_index": api.gpu_index})
     try:
         old_f, old_m, new_f, new_m = clk_domains.write_clock_domains(api, args.freq_khz, args.msvdd_uv)
     except Exception as e:
-        clk_domains.restore_from_buf(api, clk_buf)
+        _safe_restore(lambda: clk_domains.restore_from_buf(api, clk_buf), "clk_domains", e)
         print(f"ERROR: write failed, rolled back: {e}", file=sys.stderr)
         return 3
     print(f"XBAR {old_f} -> {new_f} kHz, MSVDD {old_m} -> {new_m} uV")
     if new_f != args.freq_khz or new_m != args.msvdd_uv:
-        clk_domains.restore_from_buf(api, clk_buf)
+        _safe_restore(lambda: clk_domains.restore_from_buf(api, clk_buf), "clk_domains", None)
         print("ERROR: readback mismatch, rolled back.", file=sys.stderr)
         return 3
+    try:
+        phys = clk_domains.measure_xbar_khz(api)
+        print(f"Physical XBAR now: {phys/1000:.0f} MHz")
+    except Exception as e:
+        print(f"WARNING: could not measure physical XBAR: {e}", file=sys.stderr)
     return 0
 
 
@@ -87,7 +203,7 @@ def cmd_set_ratio(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: set-ratio requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported(args.force_driver):
+    if not _ensure_supported_auto(api, args):
         return 2
     if args.raw is not None:
         raw = args.raw
@@ -100,18 +216,29 @@ def cmd_set_ratio(args, api: NvApi) -> int:
             return 2
         raw = prop_rels.ratio_float_to_raw(args.ratio)
 
+    if not _confirm_validated(args, "Ratio",
+                              safety.is_validated_ratio(prop_rels.ratio_raw_to_float(raw)),
+                              f"{prop_rels.ratio_raw_to_float(raw):.4f}"):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+
+    if not prop_rels.validate_prop_rels(api):
+        print("ERROR: PropRels GET_INFO failed; refusing to write ratio.", file=sys.stderr)
+        return 2
+
     prop_buf, old_r = prop_rels.read_prop_rels(api)
     backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_set_ratio_pre", prop_buf,
-                                  {"kind": "prop_rels", "ratio_raw": old_r})
+                                  {"kind": "prop_rels", "ratio_raw": old_r,
+                                   "gpu_index": api.gpu_index})
     try:
         _, new_r = prop_rels.write_prop_rels(api, raw)
     except Exception as e:
-        prop_rels.restore_from_buf(api, prop_buf)
+        _safe_restore(lambda: prop_rels.restore_from_buf(api, prop_buf), "prop_rels", e)
         print(f"ERROR: write failed, rolled back: {e}", file=sys.stderr)
         return 3
     print(f"Ratio raw {old_r} -> {new_r} ({prop_rels.ratio_raw_to_float(new_r):.6f})")
     if new_r != raw:
-        prop_rels.restore_from_buf(api, prop_buf)
+        _safe_restore(lambda: prop_rels.restore_from_buf(api, prop_buf), "prop_rels", None)
         print("ERROR: readback mismatch, rolled back.", file=sys.stderr)
         return 3
     return 0
@@ -141,7 +268,7 @@ def cmd_vfp_set_range(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: vfp set-range requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported(args.force_driver):
+    if not _ensure_supported_auto(api, args):
         return 2
     try:
         safety.check_xbar_freq(args.freq_khz)
@@ -153,13 +280,28 @@ def cmd_vfp_set_range(args, api: NvApi) -> int:
 
     active = vf_points.active_mask(api)
     pre = vf_points.get_control(api, active)
+    # Step protection: if any flat changes by more than the VF step limit, ask.
+    max_delta = 0
+    for flat in range(args.start, args.end + 1):
+        rec = vf_points.CTRL_REC_BASE + flat * vf_points.CTRL_REC_STRIDE
+        if get_u32(pre, rec) == 0xD:
+            old = i32(get_u32(pre, rec + 0x38))
+            max_delta = max(max_delta, abs(args.freq_khz - old))
+    if not _confirm_step(args, "VF", max_delta, safety.MAX_VF_STEP_KHZ):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+    if not _confirm_validated(args, "VF offset", args.freq_khz == 88000,
+                              f"{args.freq_khz} kHz"):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+
     backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_vfp_set_pre", pre,
                                   {"kind": "vf_control", "start": args.start, "end": args.end,
-                                   "freq_khz": args.freq_khz})
+                                   "freq_khz": args.freq_khz, "gpu_index": api.gpu_index})
     try:
         after = vf_points.set_xbar_range(api, args.start, args.end, args.freq_khz)
     except Exception as e:
-        vf_points.set_control(api, pre)
+        _safe_restore(lambda: vf_points.set_control(api, pre), "vf_control", e)
         print(f"ERROR: write failed, rolled back: {e}", file=sys.stderr)
         return 3
 
@@ -169,11 +311,11 @@ def cmd_vfp_set_range(args, api: NvApi) -> int:
         rec = vf_points.CTRL_REC_BASE + flat * vf_points.CTRL_REC_STRIDE
         if get_u32(after, rec) != 0xD:
             continue
-        got = _i32(get_u32(after, rec + 0x38))
+        got = i32(get_u32(after, rec + 0x38))
         if got != args.freq_khz:
             bad.append((flat, got))
     if bad:
-        vf_points.set_control(api, pre)
+        _safe_restore(lambda: vf_points.set_control(api, pre), "vf_control", None)
         print(f"ERROR: readback mismatch on flats {bad[:10]}, rolled back.", file=sys.stderr)
         return 3
     print("Readback OK.")
@@ -184,7 +326,7 @@ def cmd_vfp_auto_range(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: vfp auto-range requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported(args.force_driver):
+    if not _ensure_supported_auto(api, args):
         return 2
 
     active = vf_points.active_mask(api)
@@ -220,13 +362,28 @@ def cmd_vfp_auto_range(args, api: NvApi) -> int:
     print(f"Auto wide range  : {start}..{end} at {args.freq_khz} kHz")
 
     pre = vf_points.get_control(api, active)
+    max_delta = 0
+    for flat in range(start, end + 1):
+        rec = vf_points.CTRL_REC_BASE + flat * vf_points.CTRL_REC_STRIDE
+        if get_u32(pre, rec) == 0xD:
+            old = i32(get_u32(pre, rec + 0x38))
+            max_delta = max(max_delta, abs(args.freq_khz - old))
+    if not _confirm_step(args, "VF", max_delta, safety.MAX_VF_STEP_KHZ):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+    if not _confirm_validated(args, "VF offset", args.freq_khz == 88000,
+                              f"{args.freq_khz} kHz"):
+        print("Cancelled.", file=sys.stderr)
+        return 1
+
     backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_vfp_auto_pre", pre,
                                   {"kind": "vf_control", "start": start, "end": end,
-                                   "freq_khz": args.freq_khz, "msvdd_mv": current_msvdd_mv})
+                                   "freq_khz": args.freq_khz, "msvdd_mv": current_msvdd_mv,
+                                   "gpu_index": api.gpu_index})
     try:
         after = vf_points.set_xbar_range(api, start, end, args.freq_khz)
     except Exception as e:
-        vf_points.set_control(api, pre)
+        _safe_restore(lambda: vf_points.set_control(api, pre), "vf_control", e)
         print(f"ERROR: write failed, rolled back: {e}", file=sys.stderr)
         return 3
 
@@ -235,11 +392,11 @@ def cmd_vfp_auto_range(args, api: NvApi) -> int:
         rec = vf_points.CTRL_REC_BASE + flat * vf_points.CTRL_REC_STRIDE
         if get_u32(after, rec) != 0xD:
             continue
-        got = _i32(get_u32(after, rec + 0x38))
+        got = i32(get_u32(after, rec + 0x38))
         if got != args.freq_khz:
             bad.append((flat, got))
     if bad:
-        vf_points.set_control(api, pre)
+        _safe_restore(lambda: vf_points.set_control(api, pre), "vf_control", None)
         print(f"ERROR: readback mismatch on flats {bad[:10]}, rolled back.", file=sys.stderr)
         return 3
     print("Readback OK.")
@@ -250,7 +407,7 @@ def cmd_vfp_restore(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: vfp restore requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported(args.force_driver):
+    if not _ensure_supported_auto(api, args):
         return 2
     buf = backup_mod.load_binary_backup(args.backup, VF_CTRL_SIZE)
     vf_points.set_control(api, buf)
@@ -268,7 +425,7 @@ def cmd_reset(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: reset requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported(args.force_driver):
+    if not _ensure_supported_auto(api, args):
         return 2
 
     # Backup current state
@@ -277,10 +434,13 @@ def cmd_reset(args, api: NvApi) -> int:
     active = vf_points.active_mask(api)
     vf_pre = vf_points.get_control(api, active)
     backup_mod.save_binary_backup(BACKUP_DIR, "reset_clk_pre", clk_buf,
-                                  {"kind": "clk_domains", "freq_khz": old_f, "msvdd_uv": old_m})
+                                  {"kind": "clk_domains", "freq_khz": old_f, "msvdd_uv": old_m,
+                                   "gpu_index": api.gpu_index})
     backup_mod.save_binary_backup(BACKUP_DIR, "reset_prop_pre", prop_buf,
-                                  {"kind": "prop_rels", "ratio_raw": old_r})
-    backup_mod.save_binary_backup(BACKUP_DIR, "reset_vf_pre", vf_pre, {"kind": "vf_control"})
+                                  {"kind": "prop_rels", "ratio_raw": old_r,
+                                   "gpu_index": api.gpu_index})
+    backup_mod.save_binary_backup(BACKUP_DIR, "reset_vf_pre", vf_pre,
+                                  {"kind": "vf_control", "gpu_index": api.gpu_index})
 
     try:
         clk_domains.write_clock_domains(api, 0, 0)
@@ -290,9 +450,9 @@ def cmd_reset(args, api: NvApi) -> int:
             raise RuntimeError("cannot detect XBAR bank for reset")
         vf_points.set_xbar_range(api, bank[0], bank[1], 0)
     except Exception as e:
-        clk_domains.restore_from_buf(api, clk_buf)
-        prop_rels.restore_from_buf(api, prop_buf)
-        vf_points.set_control(api, vf_pre)
+        _safe_restore(lambda: clk_domains.restore_from_buf(api, clk_buf), "clk_domains", e)
+        _safe_restore(lambda: prop_rels.restore_from_buf(api, prop_buf), "prop_rels", e)
+        _safe_restore(lambda: vf_points.set_control(api, vf_pre), "vf_control", e)
         print(f"ERROR: reset failed, rolled back: {e}", file=sys.stderr)
         return 3
 
@@ -315,7 +475,7 @@ def cmd_restore_snapshot(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: restore-snapshot requires administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported(args.force_driver):
+    if not _ensure_supported_auto(api, args):
         return 2
     snap = backup_mod.load_snapshot(args.snapshot)
     clk_buf = bytes_to_buf(snap["clk_bytes"], clk_domains.CLK_DOMAINS_BUFSIZE)
@@ -334,9 +494,9 @@ def cmd_restore_snapshot(args, api: NvApi) -> int:
         prop_rels.restore_from_buf(api, prop_buf)
         vf_points.set_control(api, vf_buf)
     except Exception as e:
-        clk_domains.restore_from_buf(api, cur_clk)
-        prop_rels.restore_from_buf(api, cur_prop)
-        vf_points.set_control(api, cur_vf)
+        _safe_restore(lambda: clk_domains.restore_from_buf(api, cur_clk), "clk_domains", e)
+        _safe_restore(lambda: prop_rels.restore_from_buf(api, cur_prop), "prop_rels", e)
+        _safe_restore(lambda: vf_points.set_control(api, cur_vf), "vf_control", e)
         print(f"ERROR: restore failed, rolled back: {e}", file=sys.stderr)
         return 3
 
@@ -361,11 +521,6 @@ def cmd_perf(args, api: NvApi) -> int:
         vals = [get_u32(buf, base + o) for o in range(0, 0x40, 4)]
         print(f"user_id {uid:#x} base={base:#x} first8={[hex(v) for v in vals[:8]]}")
     return 0
-
-
-def _i32(v: int) -> int:
-    v &= 0xFFFFFFFF
-    return v if v < 0x80000000 else v - 0x100000000
 
 
 def _prompt_int(label: str, current: int, lo: int, hi: int, unit: str = "") -> int:
@@ -402,8 +557,14 @@ def cmd_wizard(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: wizard writes require administrator.", file=sys.stderr)
         return 2
-    if not _ensure_supported(args.force_driver):
-        return 2
+    if not _ensure_supported_auto(api, args):
+        print("Auto-check did not fully pass.", file=sys.stderr)
+        ans = input("Continue anyway in risky force mode? [y/N] ").strip().lower()
+        if ans not in ("y", "yes"):
+            print("Cancelled.")
+            return 2
+        print("WARNING: continuing in force mode.", file=sys.stderr)
+        args.force_driver = True
 
     # Current values
     _, freq, msvdd = clk_domains.read_clock_domains(api)
@@ -418,6 +579,15 @@ def cmd_wizard(args, api: NvApi) -> int:
         return 2
     bank_start, bank_end = bank
     status_buf = vf_points.get_status(api, active)
+
+    # Reference suggestions for new users.
+    print("\n=== Reference suggestions ===")
+    print("  - Read your physical MSVDD from HWiNFO64 or mVolt+ before continuing.")
+    print("  - If you don't know it, 1150 mV is a common starting point on RTX 5090.")
+    print("  - Author's stable starting combo (RTX 5090 / driver 610.62/610.88):")
+    print("      XBAR +228 MHz / MSVDD +10 mV / Ratio 1.2 / VF auto wide range +88 MHz")
+    print("  - If the game crashes, lower XBAR to +220 or +205 first.")
+    print("  - Other GPUs/VBIOS may need different values; start lower and verify.")
 
     # Ask for the current physical MSVDD (mV), then pick a broad VF range
     # around the closest V/F point.
@@ -438,7 +608,7 @@ def cmd_wizard(args, api: NvApi) -> int:
     ctrl = vf_points.get_control(api, active)
     sample_flat = (default_start + default_end) // 2
     vf_rec = vf_points.CTRL_REC_BASE + sample_flat * vf_points.CTRL_REC_STRIDE
-    cur_vf = _i32(get_u32(ctrl, vf_rec + 0x38)) if get_u32(ctrl, vf_rec) == 0xD else 0
+    cur_vf = i32(get_u32(ctrl, vf_rec + 0x38)) if get_u32(ctrl, vf_rec) == 0xD else 0
 
     print("=== xbar5090 interactive setup ===")
     print(f"Detected XBAR V/F bank on this machine: {bank_start}..{bank_end}")
@@ -468,28 +638,68 @@ def cmd_wizard(args, api: NvApi) -> int:
     print(f"MSVDD offset: {new_msvdd/1000:+.1f} mV")
     print(f"Ratio       : {new_ratio:.4f}")
     print(f"VF range    : {new_vf_start}..{new_vf_end} at {new_vf_freq/1000:+.0f} MHz")
+
+    if not _confirm_step(args, "XBAR", new_freq - freq, safety.MAX_XBAR_STEP_KHZ):
+        print("Cancelled.")
+        return 1
+    if not _confirm_step(args, "MSVDD", new_msvdd - msvdd, safety.MAX_MSVDD_STEP_UV, "uV"):
+        print("Cancelled.")
+        return 1
+    if not _confirm_step(args, "VF", new_vf_freq - cur_vf, safety.MAX_VF_STEP_KHZ):
+        print("Cancelled.")
+        return 1
+    if not _confirm_validated(args, "XBAR offset", safety.is_validated_xbar(new_freq),
+                              f"{new_freq} kHz"):
+        print("Cancelled.")
+        return 1
+    if not _confirm_validated(args, "MSVDD offset", safety.is_validated_msvdd(new_msvdd),
+                              f"{new_msvdd} uV"):
+        print("Cancelled.")
+        return 1
+    if not _confirm_validated(args, "Ratio", safety.is_validated_ratio(new_ratio),
+                              f"{new_ratio:.4f}"):
+        print("Cancelled.")
+        return 1
+
     ans = input("Apply? [y/N] ").strip().lower()
     if ans not in ("y", "yes"):
         print("Cancelled.")
         return 1
 
+    if not prop_rels.validate_prop_rels(api):
+        print("ERROR: PropRels GET_INFO failed; refusing to apply.", file=sys.stderr)
+        return 2
+
     # Backups
     clk_buf, _, _ = clk_domains.read_clock_domains(api)
     prop_buf, _ = prop_rels.read_prop_rels(api)
     vf_pre = vf_points.get_control(api, active)
-    backup_mod.save_binary_backup(BACKUP_DIR, "wizard_clk_pre", clk_buf, {"kind": "clk_domains"})
-    backup_mod.save_binary_backup(BACKUP_DIR, "wizard_prop_pre", prop_buf, {"kind": "prop_rels"})
-    backup_mod.save_binary_backup(BACKUP_DIR, "wizard_vf_pre", vf_pre, {"kind": "vf_control"})
+    backup_mod.save_binary_backup(BACKUP_DIR, "wizard_clk_pre", clk_buf,
+                                  {"kind": "clk_domains", "gpu_index": api.gpu_index})
+    backup_mod.save_binary_backup(BACKUP_DIR, "wizard_prop_pre", prop_buf,
+                                  {"kind": "prop_rels", "gpu_index": api.gpu_index})
+    backup_mod.save_binary_backup(BACKUP_DIR, "wizard_vf_pre", vf_pre,
+                                  {"kind": "vf_control", "gpu_index": api.gpu_index})
 
     # Apply with rollback on failure
     try:
         clk_domains.write_clock_domains(api, new_freq, new_msvdd)
         prop_rels.write_prop_rels(api, prop_rels.ratio_float_to_raw(new_ratio))
-        vf_points.set_xbar_range(api, new_vf_start, new_vf_end, new_vf_freq)
+        after_vf = vf_points.set_xbar_range(api, new_vf_start, new_vf_end, new_vf_freq)
+        bad = []
+        for flat in range(new_vf_start, new_vf_end + 1):
+            rec = vf_points.CTRL_REC_BASE + flat * vf_points.CTRL_REC_STRIDE
+            if get_u32(after_vf, rec) != 0xD:
+                continue
+            got = i32(get_u32(after_vf, rec + 0x38))
+            if got != new_vf_freq:
+                bad.append((flat, got))
+        if bad:
+            raise RuntimeError(f"VF readback mismatch on flats {bad[:10]}")
     except Exception as e:
-        clk_domains.restore_from_buf(api, clk_buf)
-        prop_rels.restore_from_buf(api, prop_buf)
-        vf_points.set_control(api, vf_pre)
+        _safe_restore(lambda: clk_domains.restore_from_buf(api, clk_buf), "clk_domains", e)
+        _safe_restore(lambda: prop_rels.restore_from_buf(api, prop_buf), "prop_rels", e)
+        _safe_restore(lambda: vf_points.set_control(api, vf_pre), "vf_control", e)
         print(f"ERROR: apply failed, rolled back: {e}", file=sys.stderr)
         return 3
 
@@ -538,6 +748,8 @@ def main(argv=None) -> int:
     write_common = argparse.ArgumentParser(add_help=False)
     write_common.add_argument("--force-driver", action="store_true",
                               help="skip driver version check (dangerous)")
+    write_common.add_argument("--yes", action="store_true",
+                              help="skip step/validated confirmation prompts (dangerous)")
 
     sub.add_parser("status").set_defaults(func=cmd_status)
     p_x = sub.add_parser("set-xbar", parents=[write_common])
