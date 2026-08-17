@@ -1,4 +1,4 @@
-# Publish xbar5090 v0.2.1 to GitHub.
+# Publish xbar5090 to GitHub.
 #
 # Requirements:
 #   - Run from the project root.
@@ -10,7 +10,12 @@
 
 $ErrorActionPreference = 'Stop'
 $repo = 'SHANAjam/rtx5090-xbar-control'
-$tag = 'v0.2.1'
+
+# Read version from pyproject.toml (e.g. version = "0.2.1")
+$versionLine = Select-String -Path 'pyproject.toml' -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+if (-not $versionLine) { throw 'Could not read version from pyproject.toml' }
+$version = $versionLine.Matches[0].Groups[1].Value
+$tag = "v$version"
 
 # 1. Sanity checks
 if (-not (Get-Command gh -ErrorAction SilentlyContinue) -and -not $env:GH_TOKEN) {
@@ -20,7 +25,7 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue) -and -not $env:GH_TOKEN)
 # 2. Stage everything and commit
 git add .
 if ($LASTEXITCODE -ne 0) { throw 'git add failed' }
-git commit -m "v0.2.1: RTX 50-series family support + cross-version validation + docs" 2>$null
+git commit -m "$tag release" 2>$null
 if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 1) { throw 'git commit failed' }
 
 # 3. Ensure main branch and remote
@@ -30,19 +35,19 @@ if (-not (git remote | Select-String '^origin$')) {
 }
 
 # 4. Tag and push
-git tag $tag
-git push origin main --tags
+git tag -f $tag
+git push origin main --force --tags
 
 # 5. Create GitHub release
-$notes = Join-Path $env:TEMP "xbar5090_v0.2.1_notes.md"
+$notes = Join-Path $env:TEMP "xbar5090_${version}_notes.md"
 Set-Content -Path $notes -Encoding UTF8 -Value @"
-# xbar5090 v0.2.1
+# xbar5090 $tag
 
 See https://github.com/SHANAjam/rtx5090-xbar-control/releases for details.
 "@
 if (Get-Command gh -ErrorAction SilentlyContinue) {
-    gh release create $tag "dist\xbar5090.exe" `
-        --title "xbar5090 v0.2.1" `
+    gh release create $tag "dist\xbar5090.exe" "dist\xbar5090-windows-single.zip" "dist\xbar5090-windows-folder.zip" `
+        --title "xbar5090 $tag" `
         --notes-file $notes
 } else {
     Write-Host "gh not installed; release creation skipped. Push succeeded."

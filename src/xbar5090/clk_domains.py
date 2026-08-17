@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 
+from .layout import find_repeating_dword_layout
 from .nvapi import NvApi, get_u32, i32, make_buffer, set_u32
 
 LOG = logging.getLogger("xbar5090.clk_domains")
@@ -56,36 +57,11 @@ def _profile_xbar_index():
     return None
 
 
-def _find_repeating_dword_layout(buf, value: int, min_offset: int = 0x100):
-    data = bytes(buf)
-    offs = [
-        i for i in range(min_offset, len(data) - 4, 4)
-        if get_u32(buf, i) == value
-    ]
-    if len(offs) < 2:
-        return None
-    best = None
-    for i in range(len(offs) - 1):
-        stride = offs[i + 1] - offs[i]
-        if stride <= 0:
-            continue
-        # Plausible record stride guard against false positives.
-        if stride < 0x40 or stride > 0x1000:
-            continue
-        base = offs[i]
-        count = sum(1 for off in offs if (off - base) % stride == 0)
-        if best is None or count > best[0]:
-            best = (count, base, stride)
-    if best is not None and best[0] >= 2:
-        return (best[1], best[2])
-    return None
-
-
 def _discover_layout_from_buf(buf):
     global _ENTRY_BASE, _ENTRY_STRIDE
     if _ENTRY_BASE is not None:
         return _ENTRY_BASE, _ENTRY_STRIDE
-    layout = _find_repeating_dword_layout(buf, 0x0F)
+    layout = find_repeating_dword_layout(buf, 0x0F)
     if layout is not None:
         _ENTRY_BASE, _ENTRY_STRIDE = layout
     else:

@@ -122,6 +122,30 @@ def _confirm_validated(args, label: str, is_ok: bool, detail: str) -> bool:
     return ans in ("yes", "y")
 
 
+_CURRENT_API = None
+
+
+def _emergency_reset(api) -> None:
+    """Last-resort reset to safe defaults if normal rollback fails."""
+    print("EMERGENCY: attempting reset to safe defaults...", file=sys.stderr)
+    try:
+        clk_domains.write_clock_domains(api, 0, 0)
+    except Exception as e:
+        print(f"EMERGENCY: clk reset failed: {e}", file=sys.stderr)
+    try:
+        prop_rels.write_prop_rels(api, prop_rels.DEFAULT_RATIO_RAW)
+    except Exception as e:
+        print(f"EMERGENCY: ratio reset failed: {e}", file=sys.stderr)
+    try:
+        active = vf_points.active_mask(api)
+        bank = vf_points.detect_xbar_bank(api)
+        if bank:
+            vf_points.set_xbar_range(api, bank[0], bank[1], 0)
+    except Exception as e:
+        print(f"EMERGENCY: VF reset failed: {e}", file=sys.stderr)
+    print("EMERGENCY reset attempted. Run 'status' to verify.", file=sys.stderr)
+
+
 def _safe_restore(restore_func, label: str, original_exc: Exception | None = None) -> None:
     """Run a rollback and report if the rollback itself fails."""
     try:
@@ -130,6 +154,8 @@ def _safe_restore(restore_func, label: str, original_exc: Exception | None = Non
         if original_exc is not None:
             print(f"ERROR: original failure: {original_exc}", file=sys.stderr)
         print(f"ERROR: rollback of {label} failed: {rollback_exc}", file=sys.stderr)
+        if _CURRENT_API is not None:
+            _emergency_reset(_CURRENT_API)
 
 
 _last_write_time = 0.0
@@ -1050,8 +1076,10 @@ def main(argv=None) -> int:
         "vfp-restore", "reset", "restore-snapshot", "wizard",
     }:
         _write_cooldown()
+    global _CURRENT_API
     try:
         api = _api(args.gpu)
+        _CURRENT_API = api
     except Exception as e:
         print(f"Failed to init NvAPI: {e}", file=sys.stderr)
         if getattr(args, "cmd", None) is None:

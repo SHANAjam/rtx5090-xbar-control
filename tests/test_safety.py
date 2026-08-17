@@ -20,9 +20,9 @@ def test_check_msvdd_bounds():
     raise AssertionError("expected ValueError")
 
 
-def test_validated_ranges():
-    assert safety.is_validated_xbar(205_000)
-    assert safety.is_validated_xbar(235_000)
-    assert not safety.is_validated_xbar(240_000)
-    assert safety.is_validated_ratio(1.2)
-    assert not safety.is_validated_ratio(1.3)
+def test_author_reference_ranges():
+    assert safety.is_author_reference_xbar(200_000)
+    assert safety.is_author_reference_xbar(235_000)
+    assert not safety.is_author_reference_xbar(240_000)
+    assert safety.is_author_reference_ratio(1.2)
+    assert not safety.is_author_reference_ratio(1.3)

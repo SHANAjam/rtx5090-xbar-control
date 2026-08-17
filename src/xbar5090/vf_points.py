@@ -13,6 +13,7 @@ import json
 import os
 import sys
 
+from .layout import find_repeating_dword_layout
 from .nvapi import NvApi, get_u32, i32, make_buffer, set_u32
 
 VF_INFO = 0x8895B510
@@ -37,32 +38,6 @@ _STATUS_LAYOUT = None
 _CTRL_LAYOUT = None
 
 
-def _find_repeating_dword_layout(buf, value: int, min_offset: int = 0x100):
-    """Find (base, stride) for repeated dword records in a buffer."""
-    data = bytes(buf)
-    offs = [
-        i for i in range(min_offset, len(data) - 4, 4)
-        if get_u32(buf, i) == value
-    ]
-    if len(offs) < 2:
-        return None
-    best = None
-    for i in range(len(offs) - 1):
-        stride = offs[i + 1] - offs[i]
-        if stride <= 0:
-            continue
-        # Plausible record stride guard against false positives.
-        if stride < 0x40 or stride > 0x1000:
-            continue
-        base = offs[i]
-        count = sum(1 for off in offs if (off - base) % stride == 0)
-        if best is None or count > best[0]:
-            best = (count, base, stride)
-    if best is not None and best[0] >= 2:
-        return (best[1], best[2])
-    return None
-
-
 def status_layout():
     """Return the currently discovered STATUS (rec_base, rec_stride)."""
     return _STATUS_LAYOUT or (STATUS_REC_BASE, STATUS_REC_STRIDE)
@@ -79,7 +54,7 @@ def discover_status_layout(api: NvApi, active, status_id: int = VF_STATUS):
     if _STATUS_LAYOUT is not None:
         return _STATUS_LAYOUT
     buf = get_status(api, active, status_id=status_id)
-    layout = _find_repeating_dword_layout(buf, 0xD)
+    layout = find_repeating_dword_layout(buf, 0xD)
     if layout is None:
         layout = (STATUS_REC_BASE, STATUS_REC_STRIDE)
     _STATUS_LAYOUT = layout
@@ -92,7 +67,7 @@ def discover_control_layout(api: NvApi, active, get_id: int = VF_GET_CONTROL):
     if _CTRL_LAYOUT is not None:
         return _CTRL_LAYOUT
     buf = get_control(api, active, get_id=get_id)
-    layout = _find_repeating_dword_layout(buf, 0xD)
+    layout = find_repeating_dword_layout(buf, 0xD)
     if layout is None:
         layout = (CTRL_REC_BASE, CTRL_REC_STRIDE)
     _CTRL_LAYOUT = layout
@@ -127,27 +102,45 @@ def detect_xbar_bank(api: NvApi, info_id: int = VF_INFO, status_id: int = VF_STA
 
     Returns (start, end) or None if it cannot be identified safely.
 
-    Note: the primary heuristic (positive total_freq_offset) only works after
-    a VF offset has been applied. On a fresh/reset card the offsets may be
-    zero, so detection falls back to range/profile scanning or the caller may
-    ask the user for the bank manually.
+    Note: the primary heuristic uses type-0xD run distribution and works even
+    when all VF offsets are zero. A positive-offset heuristic is kept as a
+    secondary fallback for layouts where the type-run rule is ambiguous.
     """
     active = active_mask(api, info_id=info_id)
     if not active:
         return None
 
-    # Generic: group into contiguous ranges and look for a 127-point bank
-    # whose first record is XBAR type 0xD. No validated-layout shortcut is
-    # used; the scan works from the live STATUS buffer.
     buf = get_status(api, active, status_id=status_id)
     rec_base, rec_stride = _STATUS_LAYOUT or discover_status_layout(api, active, status_id=status_id)
 
-    # Primary generic detection: a 127-point contiguous window where every
-    # record is XBAR type 0xD and has a positive total frequency offset.
-    # This uniquely identifies the XBAR bank on the validated RTX 5090 and is
-    # intended to be generic across RTX 50-series cards.
+    # Primary generic detection (offset-independent): find contiguous runs of
+    # type-0xD records and take the last 127 points of the first run that is
+    # at least 127 points long. On the validated RTX 5090 this yields
+    # 127..253 without depending on any VF offset.
     if len(active) >= 127:
         active_set = set(active)
+        runs = []
+        run_start = None
+        prev = None
+        for i in active:
+            rec = rec_base + i * rec_stride
+            if get_u32(buf, rec) != 0xD:
+                if run_start is not None:
+                    runs.append((run_start, prev))
+                    run_start = None
+            else:
+                if run_start is None:
+                    run_start = i
+                prev = i
+        if run_start is not None:
+            runs.append((run_start, prev))
+        for s, e in runs:
+            length = e - s + 1
+            if length >= 127:
+                return (e - 126, e)
+
+    # Secondary heuristic: positive-offset window (works after VF has been set).
+    if len(active) >= 127:
         for s in range(active[0], active[-1] - 126 + 1):
             ok = True
             for i in range(s, s + 127):
@@ -216,7 +209,7 @@ def get_status(api: NvApi, active, status_id: int = VF_STATUS):
     rc = api.call(status_id, buf)
     if rc != 0:
         raise RuntimeError(f"VF_STATUS failed rc={rc}")
-    layout = _find_repeating_dword_layout(buf, 0xD)
+    layout = find_repeating_dword_layout(buf, 0xD)
     if layout is not None:
         base, stride = layout
         # Cross-check: first active records must look like real VF records.
@@ -258,7 +251,7 @@ def get_control(api: NvApi, active, get_id: int = VF_GET_CONTROL):
     rc = api.call(get_id, buf)
     if rc != 0:
         raise RuntimeError(f"VF_GET_CONTROL failed rc={rc}")
-    layout = _find_repeating_dword_layout(buf, 0xD)
+    layout = find_repeating_dword_layout(buf, 0xD)
     if layout is not None:
         base, stride = layout
         # Cross-check: first active records must be XBAR type 0xD.
