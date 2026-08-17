@@ -98,15 +98,13 @@ def disasm_function(data: bytes, rva: int, image_base: int, size: int = 0x800):
 
 
 def check_version_constant(insns, expected: int) -> bool:
+    needle = "0x%x" % expected
     for ins in insns:
-        # capstone immediate may be in ins.operands
         for op in ins.operands:
             if op.type == capstone.x86.X86_OP_IMM and op.imm == expected:
                 return True
-            # Also check raw bytes for cmp dword ptr [..], imm32
-        if expected & 0xFFFFFFFF in (0x15798, 0x1075C, 0x12340):
-            if ("0x%x" % expected) in ins.op_str:
-                return True
+        if needle in ins.op_str:
+            return True
     return False
 
 

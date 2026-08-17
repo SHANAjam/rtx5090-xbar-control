@@ -24,7 +24,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.validate_nvapi_drivers import find_table_records, load_pe, disasm_function
 
-BASE = Path(r"D:\迅雷下载\1")
+import os as _os
+BASE = Path(_os.environ.get("XBAR_DRIVER_DIR", r"D:\迅雷下载\1"))
 VERSIONS = [
     ("572.16", "572.16-desktop-win10-win11-64bit-international-dch-whql", "nvapi64.dll"),
     ("576.02", "576.02-desktop-win10-win11-64bit-international-dch-whql", "nvapi64.dll"),

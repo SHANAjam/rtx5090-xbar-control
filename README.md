@@ -95,7 +95,6 @@ python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --yes
 python run.py l2-test
 python run.py profile-save myprofile
 python run.py profile-apply myprofile --yes
-python run.py autostart-install
 ```
 
 ---

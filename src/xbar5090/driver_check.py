@@ -43,10 +43,34 @@ def get_gpu_name() -> str:
     return ""
 
 
-# All desktop RTX 50-series models use the same private NvAPI layout
-# (validated on R572..R610). Laptop SKUs are intentionally excluded.
-# This is intentionally broad: the NvAPI layout is identical across the
-# desktop RTX 50 family on the validated driver branches.
+# Known desktop and laptop RTX 50-series models. Unknown models that still
+# contain "RTX 50" are allowed only after explicit user confirmation.
+KNOWN_RTX50_MODELS = [
+    "RTX 5050",
+    "RTX 5060",
+    "RTX 5060 Ti",
+    "RTX 5070",
+    "RTX 5070 Ti",
+    "RTX 5080",
+    "RTX 5090",
+    "RTX 5090 D",
+    "RTX 5090 D v2",
+    "RTX 5050 Laptop GPU",
+    "RTX 5060 Laptop GPU",
+    "RTX 5070 Laptop GPU",
+    "RTX 5070 Ti Laptop GPU",
+    "RTX 5080 Laptop GPU",
+    "RTX 5090 Laptop GPU",
+]
+
+
+def is_known_rtx50(name: str) -> bool:
+    return any(model.lower() in name.lower() for model in KNOWN_RTX50_MODELS)
+
+
+# All desktop/laptop RTX 50-series models use the same private NvAPI layout
+# (validated on R572..R610). This is intentionally broad; unknown RTX 50
+# models are allowed only after confirmation in the CLI.
 def ensure_supported_gpu() -> tuple[bool, str]:
     name = get_gpu_name()
     if not name:

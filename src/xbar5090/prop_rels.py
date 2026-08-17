@@ -172,23 +172,23 @@ def _find_ratio_offset(buf) -> int:
     return PROP_ENTRY_BASE + PROP_OFF_RATIO
 
 
-def read_prop_rels_full(api: NvApi):
+def read_prop_rels_full(api: NvApi, get_id: int | None = None):
     buf = make_buffer(PROP_RELS_BUFSIZE)
     set_u32(buf, 0, PROP_RELS_VERSION)
     set_u32(buf, 4, PROP_RELS_MASK)
-    rc = api.call(PROP_RELS_GET_CONTROL, buf)
+    rc = api.call(get_id or PROP_RELS_GET_CONTROL, buf)
     if rc != 0:
         raise RuntimeError(f"PropRelsGetControl failed rc={rc}")
-    off = PROP_ENTRY_BASE + PROP_OFF_RATIO
+    off = _find_ratio_offset(buf)
     raw = get_u32(buf, off)
     if not (0 <= raw <= 2 * 65536):
-        off = _find_ratio_offset(buf)
+        off = PROP_ENTRY_BASE + PROP_OFF_RATIO
         raw = get_u32(buf, off)
     return buf, raw, off
 
 
-def read_prop_rels(api: NvApi):
-    buf, raw, _ = read_prop_rels_full(api)
+def read_prop_rels(api: NvApi, get_id: int | None = None):
+    buf, raw, _ = read_prop_rels_full(api, get_id=get_id)
     return buf, raw
 
 

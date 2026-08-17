@@ -7,7 +7,6 @@ import base64
 import json
 import logging
 import os
-import subprocess
 import sys
 import time
 
@@ -32,6 +31,19 @@ def _api(gpu_index: int = 0) -> NvApi:
     return NvApi(gpu_index=gpu_index)
 
 
+def _confirm_unlisted_gpu(args) -> bool:
+    """Ask before allowing an RTX 50 model that is not in the known list."""
+    name = driver_check.get_gpu_name()
+    if not name or driver_check.is_known_rtx50(name):
+        return True
+    print(f"WARNING: GPU model '{name}' is not in the known RTX 50 list.", file=sys.stderr)
+    if getattr(args, "yes", False):
+        print("  --yes specified, continuing with unlisted model.", file=sys.stderr)
+        return True
+    ans = input("Type 'yes' to continue with this unlisted RTX 50 model: ").strip().lower()
+    return ans in ("yes", "y")
+
+
 def _ensure_supported_auto(api: NvApi, args) -> bool:
     """Like _ensure_supported, but automatically tries crack for unknown drivers."""
     if getattr(args, "force_driver", False):
@@ -43,7 +55,7 @@ def _ensure_supported_auto(api: NvApi, args) -> bool:
         if not ok_gpu:
             print(f"ERROR: {msg_gpu}", file=sys.stderr)
             return False
-        return True
+        return _confirm_unlisted_gpu(args)
     # Driver not in known list: auto-verify with crack -> probe -> status.
     print("Driver not in known list. Running auto-crack...", file=sys.stderr)
     candidates_path = os.path.join(APP_DIR, "candidates.json")
@@ -61,6 +73,9 @@ def _ensure_supported_auto(api: NvApi, args) -> bool:
     ok_gpu, msg_gpu = driver_check.ensure_supported_gpu()
     if not ok_gpu:
         print(f"ERROR: {msg_gpu}", file=sys.stderr)
+        return False
+    if not _confirm_unlisted_gpu(args):
+        print("Cancelled.", file=sys.stderr)
         return False
     # Now run probe (read-only) to confirm the full layout is still valid.
     if not probe.probe_driver(api):
@@ -96,10 +111,10 @@ def _confirm_step(args, label: str, delta, limit, unit: str = "kHz") -> bool:
 
 
 def _confirm_validated(args, label: str, is_ok: bool, detail: str) -> bool:
-    """Warn when a value is outside the validated range; ask for confirmation."""
+    """Warn when a value is outside the author's reference range; ask for confirmation."""
     if is_ok:
         return True
-    print(f"WARNING: {label} is outside the validated range: {detail}", file=sys.stderr)
+    print(f"WARNING: {label} is outside the author's reference range: {detail}", file=sys.stderr)
     if getattr(args, "yes", False):
         print("  --yes specified, continuing.", file=sys.stderr)
         return True
@@ -209,12 +224,12 @@ def cmd_set_xbar(args, api: NvApi) -> int:
         print("Cancelled.", file=sys.stderr)
         return 1
     if not _confirm_validated(args, "XBAR offset",
-                              safety.is_validated_xbar(args.freq_khz),
+                              safety.is_author_reference_xbar(args.freq_khz),
                               f"{args.freq_khz} kHz"):
         print("Cancelled.", file=sys.stderr)
         return 1
     if not _confirm_validated(args, "MSVDD offset",
-                              safety.is_validated_msvdd(args.msvdd_uv),
+                              safety.is_author_reference_msvdd(args.msvdd_uv),
                               f"{args.msvdd_uv} uV"):
         print("Cancelled.", file=sys.stderr)
         return 1
@@ -262,7 +277,7 @@ def cmd_set_ratio(args, api: NvApi) -> int:
         raw = prop_rels.ratio_float_to_raw(args.ratio)
 
     if not _confirm_validated(args, "Ratio",
-                              safety.is_validated_ratio(prop_rels.ratio_raw_to_float(raw)),
+                              safety.is_author_reference_ratio(prop_rels.ratio_raw_to_float(raw)),
                               f"{prop_rels.ratio_raw_to_float(raw):.4f}"):
         print("Cancelled.", file=sys.stderr)
         return 1
@@ -634,8 +649,22 @@ def cmd_profile_apply(args, api: NvApi) -> int:
         print(f"ERROR: profile apply failed, rolled back: {e}", file=sys.stderr)
         return 3
 
-    _, f, m = clk_domains.read_clock_domains(api)
-    _, r = prop_rels.read_prop_rels(api)
+    after_clk, f, m = clk_domains.read_clock_domains(api)
+    after_prop, r = prop_rels.read_prop_rels(api)
+    after_vf = vf_points.get_control(api, vf_points.active_mask(api))
+    bad = []
+    if bytes(after_clk) != snap["clk_bytes"]:
+        bad.append("clk")
+    if bytes(after_prop) != snap["prop_bytes"]:
+        bad.append("prop")
+    if bytes(after_vf) != snap["vf_bytes"]:
+        bad.append("vf")
+    if bad:
+        _safe_restore(lambda: clk_domains.restore_from_buf(api, cur_clk), "clk_domains", None)
+        _safe_restore(lambda: prop_rels.restore_from_buf(api, cur_prop), "prop_rels", None)
+        _safe_restore(lambda: vf_points.set_control(api, cur_vf), "vf_control", None)
+        print(f"ERROR: profile apply readback mismatch on {bad}, rolled back.", file=sys.stderr)
+        return 3
     print(f"Profile applied: {args.name} (XBAR={f} kHz, MSVDD={m} uV, ratio_raw={r})")
     return 0
 
@@ -661,61 +690,6 @@ def cmd_perf(args, api: NvApi) -> int:
     return 0
 
 
-def _autostart_script_path() -> str:
-    return os.path.join(APP_DIR, "autostart_xbar.ps1")
-
-
-def _write_autostart_script() -> str:
-    if getattr(sys, "frozen", False):
-        cmd = f"& '{sys.executable}'"
-    else:
-        py = sys.executable
-        run = os.path.join(APP_DIR, "run.py")
-        cmd = f"& '{py}' '{run}'"
-    script = f"""$ErrorActionPreference = 'Continue'
-{cmd} vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --yes *> $env:TEMP\\xbar5090_autostart.log 2>&1
-{cmd} set-xbar --freq-khz 205000 --msvdd-uv 10000 --yes *>> $env:TEMP\\xbar5090_autostart.log 2>&1
-{cmd} set-ratio --ratio 1.2 --yes *>> $env:TEMP\\xbar5090_autostart.log 2>&1
-"""
-    path = _autostart_script_path()
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(script)
-    return path
-
-
-def cmd_autostart_install(args, api: NvApi) -> int:
-    if not is_admin():
-        print("ERROR: autostart-install requires administrator.", file=sys.stderr)
-        return 2
-    script = _write_autostart_script()
-    task_name = "xbar5090 Autostart"
-    cmd = (
-        f'schtasks /Create /TN "{task_name}" '
-        f'/TR "powershell -NoProfile -ExecutionPolicy Bypass -File \\"{script}\\"" '
-        f'/SC ONLOGON /RL HIGHEST /F'
-    )
-    r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    if r.returncode != 0:
-        print(f"ERROR: failed to create scheduled task: {r.stderr.strip()}", file=sys.stderr)
-        return 1
-    print(f"Autostart installed: {task_name}")
-    print(f"Script: {script}")
-    return 0
-
-
-def cmd_autostart_remove(args, api: NvApi) -> int:
-    if not is_admin():
-        print("ERROR: autostart-remove requires administrator.", file=sys.stderr)
-        return 2
-    task_name = "xbar5090 Autostart"
-    r = subprocess.run(f'schtasks /Delete /TN "{task_name}" /F', shell=True, capture_output=True, text=True)
-    if r.returncode != 0:
-        print(f"ERROR: failed to remove scheduled task: {r.stderr.strip()}", file=sys.stderr)
-        return 1
-    print(f"Autostart removed: {task_name}")
-    return 0
-
-
 def cmd_menu(args, api: NvApi) -> int:
     """Interactive main menu for double-click / right-click users."""
     while True:
@@ -725,10 +699,8 @@ def cmd_menu(args, api: NvApi) -> int:
         print("  3. Run L2 stability test")
         print("  4. Save current profile")
         print("  5. Apply a profile")
-        print("  6. Install autostart")
-        print("  7. Remove autostart")
         print("  0. Exit")
-        choice = _prompt_int("Select", 0, 0, 7)
+        choice = _prompt_int("Select", 0, 0, 5)
         if choice == 0:
             break
         if choice == 1:
@@ -747,10 +719,6 @@ def cmd_menu(args, api: NvApi) -> int:
             if name:
                 args.name = name
                 cmd_profile_apply(args, api)
-        elif choice == 6:
-            cmd_autostart_install(args, api)
-        elif choice == 7:
-            cmd_autostart_remove(args, api)
     return 0
 
 
@@ -883,15 +851,15 @@ def cmd_wizard(args, api: NvApi) -> int:
     if not _confirm_step(args, "VF", new_vf_freq - cur_vf, safety.MAX_VF_STEP_KHZ):
         print("Cancelled.")
         return 1
-    if not _confirm_validated(args, "XBAR offset", safety.is_validated_xbar(new_freq),
+    if not _confirm_validated(args, "XBAR offset", safety.is_author_reference_xbar(new_freq),
                               f"{new_freq} kHz"):
         print("Cancelled.")
         return 1
-    if not _confirm_validated(args, "MSVDD offset", safety.is_validated_msvdd(new_msvdd),
+    if not _confirm_validated(args, "MSVDD offset", safety.is_author_reference_msvdd(new_msvdd),
                               f"{new_msvdd} uV"):
         print("Cancelled.")
         return 1
-    if not _confirm_validated(args, "Ratio", safety.is_validated_ratio(new_ratio),
+    if not _confirm_validated(args, "Ratio", safety.is_author_reference_ratio(new_ratio),
                               f"{new_ratio:.4f}"):
         print("Cancelled.")
         return 1
@@ -1038,8 +1006,6 @@ def main(argv=None) -> int:
     p_perf = sub.add_parser("perf")
     p_perf.add_argument("--json", action="store_true", help="output JSON")
     p_perf.set_defaults(func=cmd_perf)
-    sub.add_parser("autostart-install").set_defaults(func=cmd_autostart_install)
-    sub.add_parser("autostart-remove").set_defaults(func=cmd_autostart_remove)
     sub.add_parser("doctor").set_defaults(func=cmd_doctor)
     sub.add_parser("probe", help="auto-verify driver layout after a driver update (read-only)").set_defaults(func=cmd_probe)
     sub.add_parser("crack", help="auto-match driver function IDs from candidates.json (read-only probing)").set_defaults(func=cmd_crack)

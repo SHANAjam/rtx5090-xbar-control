@@ -9,10 +9,13 @@ Version 0x000261A4 (V2) on the validated driver branch.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 
 from .nvapi import NvApi, get_u32, i32, make_buffer, set_u32
+
+LOG = logging.getLogger("xbar5090.clk_domains")
 
 CLK_DOMAINS_GET_CONTROL = 0xF58938F5
 CLK_DOMAINS_SET_CONTROL = 0xD14B69CF
@@ -66,6 +69,9 @@ def _find_repeating_dword_layout(buf, value: int, min_offset: int = 0x100):
         stride = offs[i + 1] - offs[i]
         if stride <= 0:
             continue
+        # Plausible record stride guard against false positives.
+        if stride < 0x40 or stride > 0x1000:
+            continue
         base = offs[i]
         count = sum(1 for off in offs if (off - base) % stride == 0)
         if best is None or count > best[0]:
@@ -118,7 +124,9 @@ def _discover_xbar_index_from_buf(buf, entry_base, entry_stride):
     if len(candidates) == 1:
         _XBAR_DOMAIN_INDEX = candidates[0]
         return _XBAR_DOMAIN_INDEX
-    return xbar_domain_index()
+    idx = xbar_domain_index()
+    LOG.warning("XBAR domain index not discoverable from live buffer; using fallback %d", idx)
+    return idx
 
 # Physical frequency measurement (CLK_MEASURE_FREQ).
 CLK_MEASURE_FREQ = 0x527FC458
@@ -139,11 +147,11 @@ def measure_xbar_khz(api: NvApi) -> int:
     return get_u32(buf, CLK_MEASURE_FREQ_OFF)
 
 
-def read_clock_domains(api: NvApi):
+def read_clock_domains(api: NvApi, get_id: int | None = None):
     buf = make_buffer(CLK_DOMAINS_BUFSIZE)
     set_u32(buf, 0, CLK_DOMAINS_VERSION)
     set_u32(buf, 8, CLK_DOMAINS_MASK)
-    rc = api.call(CLK_DOMAINS_GET_CONTROL, buf)
+    rc = api.call(get_id or CLK_DOMAINS_GET_CONTROL, buf)
     if rc != 0:
         raise RuntimeError(f"ClkDomainsGetControl failed rc={rc}")
     entry_base, entry_stride = _discover_layout_from_buf(buf)

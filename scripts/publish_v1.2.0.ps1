@@ -34,10 +34,16 @@ git tag $tag
 git push origin main --tags
 
 # 5. Create GitHub release
+$notes = Join-Path $env:TEMP "xbar5090_v0.2.1_notes.md"
+Set-Content -Path $notes -Encoding UTF8 -Value @"
+# xbar5090 v0.2.1
+
+See https://github.com/SHANAjam/rtx5090-xbar-control/releases for details.
+"@
 if (Get-Command gh -ErrorAction SilentlyContinue) {
     gh release create $tag "dist\xbar5090.exe" `
         --title "xbar5090 v0.2.1" `
-        --notes-file "docs\RELEASE_NOTES_v0.2.1.md"
+        --notes-file $notes
 } else {
     Write-Host "gh not installed; release creation skipped. Push succeeded."
     Write-Host "Create the release manually at: https://github.com/$repo/releases/new?tag=$tag"

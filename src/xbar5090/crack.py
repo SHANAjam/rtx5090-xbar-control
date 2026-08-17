@@ -70,14 +70,7 @@ def _fn_exists(api: NvApi, fid: int) -> bool:
 
 def _try_clk_get(api: NvApi, fid: int) -> bool:
     try:
-        # Temporarily point the module at the candidate ID and use the normal
-        # read path, which now discovers the entry layout dynamically.
-        old = clk_domains.CLK_DOMAINS_GET_CONTROL
-        clk_domains.CLK_DOMAINS_GET_CONTROL = fid
-        try:
-            _, freq, msvdd = clk_domains.read_clock_domains(api)
-        finally:
-            clk_domains.CLK_DOMAINS_GET_CONTROL = old
+        _, freq, msvdd = clk_domains.read_clock_domains(api, get_id=fid)
         return -1_000_000 <= freq <= 1_000_000 and -100_000 <= msvdd <= 100_000
     except Exception:
         return False
@@ -85,12 +78,7 @@ def _try_clk_get(api: NvApi, fid: int) -> bool:
 
 def _try_prop_get(api: NvApi, fid: int) -> bool:
     try:
-        old = prop_rels.PROP_RELS_GET_CONTROL
-        prop_rels.PROP_RELS_GET_CONTROL = fid
-        try:
-            _, raw = prop_rels.read_prop_rels(api)
-        finally:
-            prop_rels.PROP_RELS_GET_CONTROL = old
+        _, raw = prop_rels.read_prop_rels(api, get_id=fid)
         return 0 <= raw <= 2 * 65536
     except Exception:
         return False

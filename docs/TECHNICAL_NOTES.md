@@ -12,7 +12,7 @@
   - [3.3 V/F points](#33-vf-points)
   - [3.4 PERF limits](#34-perf-limits)
   - [3.5 L2 stability test](#35-l2-stability-test)
-- [4. Reverse engineering process and artifacts](#4-reverse-engineering-process-and-artifacts)
+- [4. Reverse engineering process](#4-reverse-engineering-process)
 - [5. Dynamic layout adaptation](#5-dynamic-layout-adaptation)
 - [6. Driver validation matrix](#6-driver-validation-matrix)
 - [7. Debugging](#7-debugging)
@@ -20,10 +20,6 @@
 - [9. References](#9-references)
 - [10. AI / Citation](#10-ai--citation)
 - [11. Known limitations](#11-known-limitations)
-- [6. Debugging](#6-debugging)
-- [7. Adding support for a new driver](#7-adding-support-for-a-new-driver)
-- [8. References](#8-references)
-- [9. Known limitations](#9-known-limitations)
 
 ## 1. Project structure
 
@@ -158,6 +154,9 @@ Validation checks:
 - ClkDomains entry offsets
 - VF STATUS/CONTROL offsets
 
+Note: a few functions (e.g. CLK_SET, PERF_GET) are only checked for ID
+presence, not full version verification.
+
 Scripts:
 
 ```powershell
@@ -213,6 +212,7 @@ If `probe` fails:
 
 - Physical MSVDD direct read is not implemented.
 - PERF limits SET is not exposed.
+- Not every NvAPI function has a full version check in the validation scripts.
 - `cli.py` is still large; a future refactor may split it.
 - The program is Windows-only.
 - The exe is unsigned; antivirus false positives are possible.

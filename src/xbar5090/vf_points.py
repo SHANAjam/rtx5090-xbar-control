@@ -51,6 +51,9 @@ def _find_repeating_dword_layout(buf, value: int, min_offset: int = 0x100):
         stride = offs[i + 1] - offs[i]
         if stride <= 0:
             continue
+        # Plausible record stride guard against false positives.
+        if stride < 0x40 or stride > 0x1000:
+            continue
         base = offs[i]
         count = sum(1 for off in offs if (off - base) % stride == 0)
         if best is None or count > best[0]:
