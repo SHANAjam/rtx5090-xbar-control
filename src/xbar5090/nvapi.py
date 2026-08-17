@@ -25,12 +25,13 @@ class NvApiError(RuntimeError):
 class NvApi:
     """Thin wrapper around nvapi_QueryInterface + private function pointers."""
 
-    def __init__(self, nvapi64: str = NVAPI64) -> None:
+    def __init__(self, nvapi64: str = NVAPI64, gpu_index: int = 0) -> None:
         self._nv = ctypes.WinDLL(nvapi64)
         self._qi = self._nv.nvapi_QueryInterface
         self._qi.restype = _QI_RESTYPE
         self._qi.argtypes = _QI_ARGTYPES
         self.gpu: ctypes.c_void_p | None = None
+        self.gpu_index = gpu_index
         self._init()
 
     def _fn(self, fid: int) -> int:
@@ -56,7 +57,9 @@ class NvApi:
         rc = enum_fn(handles, ctypes.byref(count))
         if rc != 0 or count.value == 0:
             raise NvApiError(f"EnumPhysicalGPUs failed rc={rc} count={count.value}")
-        self.gpu = ctypes.c_void_p(handles[0])
+        if self.gpu_index >= count.value:
+            raise NvApiError(f"GPU index {self.gpu_index} out of range (count={count.value})")
+        self.gpu = ctypes.c_void_p(handles[self.gpu_index])
 
     def call(self, fid: int, buf: ctypes.Array) -> int:
         """Call a private function with signature fn(hGpu, params)."""

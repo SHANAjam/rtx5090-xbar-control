@@ -15,8 +15,8 @@ BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."
 VF_CTRL_SIZE = vf_points.VF_CTRL_VER
 
 
-def _api() -> NvApi:
-    return NvApi()
+def _api(gpu_index: int = 0) -> NvApi:
+    return NvApi(gpu_index=gpu_index)
 
 
 def _ensure_supported() -> bool:
@@ -224,6 +224,57 @@ def cmd_reset(args, api: NvApi) -> int:
     return 0
 
 
+def cmd_snapshot(args, api: NvApi) -> int:
+    clk_buf, _, _ = clk_domains.read_clock_domains(api)
+    prop_buf, _ = prop_rels.read_prop_rels(api)
+    active = vf_points.active_mask(api)
+    vf_buf = vf_points.get_control(api, active)
+    path = backup_mod.save_snapshot(BACKUP_DIR, "snapshot", clk_buf, prop_buf, vf_buf,
+                                    {"gpu_index": api.gpu_index})
+    print(f"Snapshot saved: {path}")
+    return 0
+
+
+def cmd_restore_snapshot(args, api: NvApi) -> int:
+    if not is_admin():
+        print("ERROR: restore-snapshot requires administrator.", file=sys.stderr)
+        return 2
+    if not _ensure_supported():
+        return 2
+    snap = backup_mod.load_snapshot(args.snapshot)
+    clk_buf = bytes_to_buf(snap["clk_bytes"], clk_domains.CLK_DOMAINS_BUFSIZE)
+    prop_buf = bytes_to_buf(snap["prop_bytes"], prop_rels.PROP_RELS_BUFSIZE)
+    vf_buf = bytes_to_buf(snap["vf_bytes"], vf_points.VF_CTRL_VER)
+
+    # Back up current state before restore.
+    cur_clk, _, _ = clk_domains.read_clock_domains(api)
+    cur_prop, _ = prop_rels.read_prop_rels(api)
+    cur_vf = vf_points.get_control(api, vf_points.active_mask(api))
+    backup_mod.save_snapshot(BACKUP_DIR, "pre_restore", cur_clk, cur_prop, cur_vf,
+                             {"gpu_index": api.gpu_index})
+
+    try:
+        clk_domains.restore_from_buf(api, clk_buf)
+        prop_rels.restore_from_buf(api, prop_buf)
+        vf_points.set_control(api, vf_buf)
+    except Exception as e:
+        clk_domains.restore_from_buf(api, cur_clk)
+        prop_rels.restore_from_buf(api, cur_prop)
+        vf_points.set_control(api, cur_vf)
+        print(f"ERROR: restore failed, rolled back: {e}", file=sys.stderr)
+        return 3
+
+    # Verify readback.
+    _, f, m = clk_domains.read_clock_domains(api)
+    _, r = prop_rels.read_prop_rels(api)
+    after_vf = vf_points.get_control(api, vf_points.active_mask(api))
+    if bytes(after_vf) != snap["vf_bytes"]:
+        print("WARNING: VF readback differs from snapshot.", file=sys.stderr)
+        return 3
+    print(f"Restored snapshot. XBAR={f} kHz, MSVDD={m} uV, ratio_raw={r}")
+    return 0
+
+
 def cmd_perf(args, api: NvApi) -> int:
     buf = perf_limits.get_perf_limits(api)
     for uid in (perf_limits.XBAR_MAX_USER_ID, perf_limits.XBAR_MIN_USER_ID):
@@ -394,6 +445,7 @@ def cmd_doctor(args, api: NvApi) -> int:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="xbar5090", description="RTX 5090 XBAR controls via private NvAPI")
+    parser.add_argument("--gpu", type=int, default=0, help="GPU index (default 0)")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("status").set_defaults(func=cmd_status)
@@ -418,10 +470,14 @@ def main(argv=None) -> int:
     sub.add_parser("doctor").set_defaults(func=cmd_doctor)
     sub.add_parser("wizard", help="interactive setup with ranges and current values").set_defaults(func=cmd_wizard)
     sub.add_parser("reset", help="reset XBAR/MSVDD/ratio/VF to driver defaults").set_defaults(func=cmd_reset)
+    sub.add_parser("snapshot", help="save clk+prop+vf snapshot").set_defaults(func=cmd_snapshot)
+    p_rs = sub.add_parser("restore-snapshot", help="restore clk+prop+vf snapshot")
+    p_rs.add_argument("--snapshot", required=True)
+    p_rs.set_defaults(func=cmd_restore_snapshot)
 
     args = parser.parse_args(argv)
     try:
-        api = _api()
+        api = _api(args.gpu)
     except Exception as e:
         print(f"Failed to init NvAPI: {e}", file=sys.stderr)
         return 2

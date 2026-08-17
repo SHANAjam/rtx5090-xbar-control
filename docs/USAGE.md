@@ -102,6 +102,16 @@ VF offset    : 0
 ```powershell
 # Reset everything to driver defaults (admin)
 python run.py reset
+
+# Save a full clk+prop+vf snapshot (read-only)
+python run.py snapshot
+
+# Restore a full snapshot (admin)
+python run.py restore-snapshot --snapshot backups\snapshot_xxx.json
+
+# Choose a GPU (default 0)
+python run.py --gpu 0 status
+python run.py --gpu 0 wizard
 ```
 
 Write commands automatically:
