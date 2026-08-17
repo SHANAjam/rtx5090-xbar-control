@@ -34,7 +34,7 @@ This project adds the missing pieces that make the XBAR offset actually work:
 - 127-point XBAR V/F read/write
 - MSVDD compensation (+10 mV) to avoid the inversion
 - A validated combo:
-  `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF 225..245 +88`
+  `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF auto wide range +88`
   → ~2970 MHz stable in game
 - Open source / scriptable / AI-callable
 
@@ -153,7 +153,10 @@ python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000
 # Set propagation ratio (admin)
 python run.py set-ratio --ratio 1.2
 
-# Set XBAR V/F range (admin)
+# Auto-select and set a broad XBAR V/F range around your physical MSVDD (admin)
+python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000
+
+# Or manually specify a range (admin)
 python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
 ```
 

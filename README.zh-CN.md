@@ -27,7 +27,7 @@ mVolt+ 可以设置 XBAR 偏移、MSVDD、NVVDD。但在这张验证卡上，单
 - 传播比控制（0.9/1.2）
 - 127 点 XBAR V/F 读写
 - MSVDD 补偿（+10mV），避免倒挂
-- 验证组合：`XBAR +235 / MSVDD +10mV / ratio 1.2 / VF 225..245 +88` → 游戏约 2970 MHz 稳定
+- 验证组合：`XBAR +235 / MSVDD +10mV / ratio 1.2 / VF 自动宽范围 +88` → 游戏约 2970 MHz 稳定
 - 开源 / 可脚本化 / AI 可调用
 
 ## 我们做了什么
@@ -124,7 +124,10 @@ python run.py set-xbar --freq-khz 235000 --msvdd-uv 10000
 # 设置传播比（管理员）
 python run.py set-ratio --ratio 1.2
 
-# 设置 XBAR V/F 范围（管理员）
+# 根据物理 MSVDD 自动选择并设置宽 XBAR V/F 范围（管理员）
+python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000
+
+# 也可以手动指定范围（管理员）
 python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
 ```
 

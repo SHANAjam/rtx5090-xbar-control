@@ -180,6 +180,72 @@ def cmd_vfp_set_range(args, api: NvApi) -> int:
     return 0
 
 
+def cmd_vfp_auto_range(args, api: NvApi) -> int:
+    if not is_admin():
+        print("ERROR: vfp auto-range requires administrator.", file=sys.stderr)
+        return 2
+    if not _ensure_supported(args.force_driver):
+        return 2
+
+    active = vf_points.active_mask(api)
+    bank = vf_points.detect_xbar_bank(api)
+    if bank is None:
+        print("ERROR: could not auto-detect the XBAR V/F bank on this GPU/driver.", file=sys.stderr)
+        return 2
+    bank_start, bank_end = bank
+
+    if args.msvdd_mv is None:
+        current_msvdd_mv = _prompt_float(
+            "Current physical MSVDD (mV)", 1150.0, 500.0, 1500.0)
+    else:
+        current_msvdd_mv = float(args.msvdd_mv)
+
+    status_buf = vf_points.get_status(api, active)
+    closest = bank_start
+    best_diff = float("inf")
+    for i in range(bank_start, bank_end + 1):
+        rec = vf_points.decode_status_record(status_buf, i)
+        diff = abs(rec["voltage_uv"] - current_msvdd_mv * 1000)
+        if diff < best_diff:
+            best_diff = diff
+            closest = i
+
+    width = args.width if args.width is not None else 15
+    start = max(bank_start, closest - width)
+    end = min(bank_end, closest + width)
+
+    print(f"Detected XBAR bank: {bank_start}..{bank_end}")
+    print(f"Input MSVDD       : {current_msvdd_mv:.0f} mV")
+    print(f"Closest VF point : {closest}")
+    print(f"Auto wide range  : {start}..{end} at {args.freq_khz} kHz")
+
+    pre = vf_points.get_control(api, active)
+    backup_mod.save_binary_backup(BACKUP_DIR, "xbar5090_vfp_auto_pre", pre,
+                                  {"kind": "vf_control", "start": start, "end": end,
+                                   "freq_khz": args.freq_khz, "msvdd_mv": current_msvdd_mv})
+    try:
+        after = vf_points.set_xbar_range(api, start, end, args.freq_khz)
+    except Exception as e:
+        vf_points.set_control(api, pre)
+        print(f"ERROR: write failed, rolled back: {e}", file=sys.stderr)
+        return 3
+
+    bad = []
+    for flat in range(start, end + 1):
+        rec = vf_points.CTRL_REC_BASE + flat * vf_points.CTRL_REC_STRIDE
+        if get_u32(after, rec) != 0xD:
+            continue
+        got = _i32(get_u32(after, rec + 0x38))
+        if got != args.freq_khz:
+            bad.append((flat, got))
+    if bad:
+        vf_points.set_control(api, pre)
+        print(f"ERROR: readback mismatch on flats {bad[:10]}, rolled back.", file=sys.stderr)
+        return 3
+    print("Readback OK.")
+    return 0
+
+
 def cmd_vfp_restore(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: vfp restore requires administrator.", file=sys.stderr)
@@ -488,6 +554,12 @@ def main(argv=None) -> int:
     p_vr.add_argument("--end", type=int, required=True)
     p_vr.add_argument("--freq-khz", type=int, required=True)
     p_vr.set_defaults(func=cmd_vfp_set_range)
+    p_va = sub.add_parser("vfp-auto-range", parents=[write_common],
+                          help="auto-select a broad VF range around physical MSVDD and apply")
+    p_va.add_argument("--msvdd-mv", type=float, help="current physical MSVDD in mV (prompts if omitted)")
+    p_va.add_argument("--freq-khz", type=int, default=88000)
+    p_va.add_argument("--width", type=int, default=15)
+    p_va.set_defaults(func=cmd_vfp_auto_range)
     p_rest = sub.add_parser("vfp-restore", parents=[write_common])
     p_rest.add_argument("--backup", required=True)
     p_rest.set_defaults(func=cmd_vfp_restore)

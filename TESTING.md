@@ -55,7 +55,7 @@
      effective.
    - Then run game stability tests.
 9. After using this tool:
-   - XBAR +235 MHz, MSVDD +10 mV, ratio 1.2, VF 224..253 +88 MHz
+   - XBAR +235 MHz, MSVDD +10 mV, ratio 1.2, VF auto wide range +88 MHz (author's machine: 224..253)
    - Physical XBAR ~2970 MHz stable in game
    - MSVDD stable at ~1.15 V
    - 3000 MHz was unstable and crashed in game.
@@ -103,7 +103,7 @@
 - The propagation ratio is effective on Windows, but only when combined with
   V/F and voltage support.
 - The stable game configuration found was:
-  `XBAR +235 / VF 225..245 +88 / MSVDD +10mV / ratio 1.2` (~2970 MHz).
+  `XBAR +235 / VF auto wide range +88 / MSVDD +10mV / ratio 1.2` (~2970 MHz).
 - 3000 MHz was reachable in mVolt+ boost test but **not stable** in game.
 - mVolt+ was used for base voltage control and clock observation; our scripts
   were used for XBAR/VF/ratio writes.

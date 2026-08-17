@@ -128,6 +128,15 @@ python run.py probe
 # Auto-match known NvAPI IDs from candidates.json (read-only)
 python run.py crack
 
+# Auto-select a broad VF range around your physical MSVDD and apply +88 MHz (admin)
+python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000
+
+# Adjust how wide the auto range is (default half-width = 15)
+python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --width 20
+
+# Or fully manual: specify your own VF range (admin)
+python run.py vfp-set-range --start 224 --end 253 --freq-khz 88000
+
 # Reset everything to driver defaults (admin)
 python run.py reset
 

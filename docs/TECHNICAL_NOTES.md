@@ -11,7 +11,8 @@ the same as 610.62.
 - The propagation ratio is effective only when V/F and voltage support it.
 - On the validated RTX 5090 / driver 610.62/610.88, a stable game
   configuration was found:
-  `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF 224..253 +88 MHz`
+  `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF auto wide range +88 MHz`
+  (on the author's machine this resolves to 224..253)
   → ~2970 MHz stable.
 - On that same configuration, 3000 MHz was unstable.
 - PERF limits SET was not found on the validated Windows driver.
