@@ -716,6 +716,44 @@ def cmd_autostart_remove(args, api: NvApi) -> int:
     return 0
 
 
+def cmd_menu(args, api: NvApi) -> int:
+    """Interactive main menu for double-click / right-click users."""
+    while True:
+        print("\n=== xbar5090 main menu ===")
+        print("  1. Show status")
+        print("  2. Interactive setup wizard")
+        print("  3. Run L2 stability test")
+        print("  4. Save current profile")
+        print("  5. Apply a profile")
+        print("  6. Install autostart")
+        print("  7. Remove autostart")
+        print("  0. Exit")
+        choice = _prompt_int("Select", 0, 0, 7)
+        if choice == 0:
+            break
+        if choice == 1:
+            cmd_status(args, api)
+        elif choice == 2:
+            cmd_wizard(args, api)
+        elif choice == 3:
+            cmd_l2_test(args, api)
+        elif choice == 4:
+            name = input("Profile name: ").strip()
+            if name:
+                args.name = name
+                cmd_profile_save(args, api)
+        elif choice == 5:
+            name = input("Profile name: ").strip()
+            if name:
+                args.name = name
+                cmd_profile_apply(args, api)
+        elif choice == 6:
+            cmd_autostart_install(args, api)
+        elif choice == 7:
+            cmd_autostart_remove(args, api)
+    return 0
+
+
 def _prompt_int(label: str, current: int, lo: int, hi: int, unit: str = "") -> int:
     while True:
         inp = input(f"{label} [{lo}..{hi}] (current {current}{unit}, Enter=keep): ").strip()
@@ -946,9 +984,11 @@ def cmd_crack(args, api: NvApi) -> int:
 
 def cmd_l2_test(args, api: NvApi) -> int:
     ok = l2test.run_l2_test(
-        blocks=args.blocks, threads=args.threads,
-        stress_iters=args.stress_iters,
-        idle_rounds=args.idle_rounds, load_rounds=args.load_rounds,
+        blocks=getattr(args, "blocks", 1360),
+        threads=getattr(args, "threads", 256),
+        stress_iters=getattr(args, "stress_iters", 100000),
+        idle_rounds=getattr(args, "idle_rounds", 3),
+        load_rounds=getattr(args, "load_rounds", 3),
     )
     return 0 if ok else 1
 
@@ -1024,9 +1064,9 @@ def main(argv=None) -> int:
     p_pa.set_defaults(func=cmd_profile_apply)
     sub.add_parser("profile-list", help="list saved profiles").set_defaults(func=cmd_profile_list)
 
-    # If no subcommand is given, launch the interactive wizard directly.
+    # If no subcommand is given, launch the interactive main menu.
     # This makes double-click / "Run as administrator" on the exe work.
-    parser.set_defaults(func=cmd_wizard)
+    parser.set_defaults(func=cmd_menu)
 
     args = parser.parse_args(argv)
     _setup_logging(args)
@@ -1042,7 +1082,15 @@ def main(argv=None) -> int:
         if getattr(args, "cmd", None) is None:
             _pause_for_interactive()
         return 2
-    rc = args.func(args, api)
+    try:
+        rc = args.func(args, api)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        if getattr(args, "cmd", None) is None:
+            _pause_for_interactive()
+        return 1
     # When launched by double-click / right-click with no subcommand, keep the
     # console open on failure so the user can read the error.
     if getattr(args, "cmd", None) is None and rc != 0:
