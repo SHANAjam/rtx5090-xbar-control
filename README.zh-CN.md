@@ -17,12 +17,24 @@
   - 127 点 XBAR V/F 状态/控制
   - PERF limits 只读
 - 测试结果和负载情况见 [TESTING.md](TESTING.md)
-- 踩坑记录见 [docs/PITFALLS.md](docs/PITFALLS.md) 和 [docs/PITFALLS_ZH.md](docs/PITFALLS_ZH.md)
+
+## 相比 mVolt+ 新增了什么
+
+mVolt+ 已经支持 XBAR 偏移、MSVDD、NVVDD。本项目**不替代 mVolt+**，它新增的是：
+
+| 功能 | mVolt+ | 本项目 |
+|---|---|---|
+| XBAR 偏移 | 有 | 重复实现 |
+| MSVDD / NVVDD | 有 | 重复实现 |
+| 传播比（0.9/1.2） | 大概率没有 | **新增** |
+| 127 点 XBAR V/F 读写 | 大概率没有 | **新增** |
+| 开源 / 可脚本化 / AI 可调用 | 没有（GUI） | **新增** |
+| 已验证可避免 MSVDD 倒挂的组合 | 需要手动试 | **新增** |
 
 ## 我们做了什么
 
-- 逆向出 Windows 私有 NvAPI 接口：XBAR/MSVDD、传播比、V/F 点、PERF limits。
-- 写了小型 CLI 来读写这些控制项。
+- 逆向出 Windows 私有 NvAPI 接口：传播比、V/F 点、PERF limits（以及 XBAR/MSVDD 的可脚本化替代）。
+- 写了小型 CLI 和交互式向导。
 - 使用 **mVolt+ v0.32** 在 RTX 5090 / 驱动 610.62 上测试。
 - A/B 测试后找到稳定配置（见 [TESTING.md](TESTING.md)）。
 - 确认传播比只有在 V/F 和电压配合时才生效。

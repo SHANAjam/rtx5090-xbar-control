@@ -8,10 +8,10 @@ Windows.
 
 - Windows NvAPI V2 works for XBAR/MSVDD and propagation ratio.
 - The propagation ratio is effective only when V/F and voltage support it.
-- A stable game configuration was found:
-  `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF 225..245 +88 MHz`
+- On the validated RTX 5090 / driver 610.62, a stable game configuration
+  was found: `XBAR +235 / MSVDD +10 mV / ratio 1.2 / VF 225..245 +88 MHz`
   → ~2970 MHz stable.
-- 3000 MHz was unstable.
+- On that same configuration, 3000 MHz was unstable.
 - PERF limits SET was not found on the validated Windows driver.
 
 ## NvAPI IDs and versions
@@ -66,3 +66,18 @@ Windows.
 
 - Validated active flat range: `0..647` (648 points).
 - If a machine does not match this, the wizard refuses to continue.
+
+## Pitfalls
+
+- NvAPI private calls use `fn(hGpu, params)`, not `fn(out, in)`.
+- Wrong version headers cause `-9` / `-104` or hangs.
+- SetControl requires administrator (`-137` otherwise).
+- Successful SET + exact readback does **not** mean the physical clock follows.
+- The propagation ratio is a request, not a direct clock setter.
+- XBAR/VF requests can make MSVDD drop (inversion); MSVDD compensation is needed.
+- V/F writes are coupled; a broad contiguous range is safer than single points.
+- PERF limits SET was not found on the validated Windows driver.
+- Brute-force probing private APIs can hang the GPU.
+- Always back up before writing and verify readback after every write.
+- On the validated RTX 5090 / driver 610.62, 3000 MHz was unstable and
+  ~2970 MHz was the stable game result.

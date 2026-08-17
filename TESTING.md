@@ -45,8 +45,9 @@
 
    > 单16pin的夜神锁800w功耗，2975的稳定xbar，3k会l2-核心存在数据错误，小心点别太搞，太高的电压有问题，以及注意核心频率和xbar有一个默认的0.9的传播轨，3kxbar理论上要3330核心。可以改 https://github.com/ilya-zlobintsev/LACT/issues/1147 详细的看这个。传播比例可以改，以及小心sys和mclk因为电压太高导致的不稳定。
 
-7. Read the related LACT issues/PRs (#1147, #3, #1158, #1159) and wrote this
-   tool with AI assistance.
+7. Read the related LACT issue #1147 (including the propagation-ratio
+   comments), PR #1158, and issue #1159, and wrote this tool with AI
+   assistance.
 8. Test standard:
    - Data-error detection from the branch descriptions (L2 integrity).
    - High-load game test (recommended: 4K 异环).
@@ -60,6 +61,9 @@
    - 3000 MHz was unstable and crashed in game.
 
 ## Key results
+
+> All numbers below are for the author's RTX 5090 (GB202) with driver 610.62.
+> They are not guarantees for other cards or drivers.
 
 ### mVolt+ built-in boost test (XBAR +235 fixed)
 
@@ -93,6 +97,9 @@
 
 ## Conclusions
 
+- mVolt+ already supports XBAR offset, MSVDD, and NVVDD. This project does not
+  replace mVolt+; it adds propagation ratio, 127-point V/F read/write, and a
+  scriptable/AI-callable interface.
 - The propagation ratio is effective on Windows, but only when combined with
   V/F and voltage support.
 - The stable game configuration found was:

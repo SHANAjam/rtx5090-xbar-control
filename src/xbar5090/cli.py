@@ -180,9 +180,23 @@ def cmd_wizard(args, api: NvApi) -> int:
         print("Refusing to continue. This project may not support this environment.", file=sys.stderr)
         return 2
     bank_start, bank_end = bank
-    bank_len = bank_end - bank_start + 1
-    default_start = bank_start + int(bank_len * 0.75)
-    default_end = min(default_start + 20, bank_end)
+    status_buf = vf_points.get_status(api, active)
+
+    # Ask for the current physical MSVDD (mV), then pick a broad VF range
+    # around the closest V/F point.
+    current_msvdd_mv = _prompt_float(
+        "Current physical MSVDD (mV)", 1150.0, 500.0, 1500.0)
+    closest = bank_start
+    best_diff = float("inf")
+    for i in range(bank_start, bank_end + 1):
+        rec = vf_points.decode_status_record(status_buf, i)
+        diff = abs(rec["voltage_uv"] - current_msvdd_mv * 1000)
+        if diff < best_diff:
+            best_diff = diff
+            closest = i
+
+    default_start = max(bank_start, closest - 15)
+    default_end = min(bank_end, closest + 15)
 
     ctrl = vf_points.get_control(api, active)
     sample_flat = (default_start + default_end) // 2
@@ -194,6 +208,8 @@ def cmd_wizard(args, api: NvApi) -> int:
     print(f"Current XBAR offset : {freq/1000:+.0f} MHz")
     print(f"Current MSVDD offset: {msvdd/1000:+.1f} mV")
     print(f"Current ratio       : {ratio:.4f}")
+    print(f"Input MSVDD         : {current_msvdd_mv:.0f} mV")
+    print(f"MSVDD-based VF range: {default_start}..{default_end}")
     print(f"Current VF offset (flat {sample_flat}): {cur_vf/1000:+.0f} MHz")
 
     new_freq_mhz = _prompt_float("XBAR offset (MHz)", freq / 1000, -1000.0, 1000.0)

@@ -55,19 +55,23 @@ python run.py wizard
 The wizard will:
 
 1. Detect the XBAR V/F bank on your machine.
-2. Show current values and allowed ranges.
-3. Let you enter new values (press Enter to keep current).
-4. Show a summary and ask for confirmation.
-5. Back up and apply after you confirm.
+2. Ask you for the current physical MSVDD (mV) — read it from mVolt+ or
+   HWiNFO.
+3. Auto-select a broad V/F range around that MSVDD.
+4. Show current values and allowed ranges.
+5. Let you enter new values (press Enter to keep current).
+6. Show a summary and ask for confirmation.
+7. Back up and apply after you confirm.
 
 ### What each value means
 
 | Prompt | Meaning | Example |
 |---|---|---|
+| Current physical MSVDD (mV) | The MSVDD voltage you are running at (read it from mVolt+/HWiNFO) | `1150` |
 | XBAR offset (MHz) | Extra XBAR clock offset | `235` = +235 MHz |
 | MSVDD offset (mV) | Extra XBAR-domain voltage offset | `10` = +10 mV |
 | Propagation ratio | GPC->XBAR ratio request | `1.2` |
-| VF bank start/end | Which V/F points to change | detected on your machine |
+| VF bank start/end | Which V/F points to change; the wizard auto-selects a broad range around your MSVDD | e.g. `222..252` |
 | VF offset (MHz) | Extra frequency offset for those V/F points | `88` = +88 MHz |
 
 ### Known stable configuration (validated)
@@ -79,7 +83,8 @@ Ratio        : 1.2
 VF offset    : 88 MHz (upper part of the detected bank)
 ```
 
-This gave ~2970 MHz stable in game on the validated card.
+On the author's RTX 5090 with driver 610.62, this gave ~2970 MHz stable in
+game.
 
 ### Reset to driver defaults
 
@@ -99,6 +104,11 @@ VF offset    : 0
 - If the wizard says it cannot detect the XBAR V/F bank, the GPU/driver is
   not recognized. Do not continue.
 - If the system crashes, reboot; all runtime settings reset.
+- XBAR/VF requests can make MSVDD drop. If you see MSVDD falling, add a
+  small MSVDD offset (e.g. +10 mV).
+- On the author's RTX 5090 with driver 610.62, 3000 MHz was unstable in
+  game. Do not assume higher is better.
+- Always back up before writing; the wizard does this automatically.
 
 ## Files
 

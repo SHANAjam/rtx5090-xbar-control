@@ -21,14 +21,26 @@
   - 127-point XBAR V/F status/control
   - PERF limits read-only
 - Test results and load conditions in [TESTING.md](TESTING.md)
-- Pitfalls in [docs/PITFALLS.md](docs/PITFALLS.md) and
-  [docs/PITFALLS_ZH.md](docs/PITFALLS_ZH.md)
+
+## What this adds (compared to mVolt+)
+
+mVolt+ already supports XBAR offset, MSVDD, and NVVDD. This project does
+**not** replace mVolt+. It adds:
+
+| Feature | mVolt+ | This project |
+|---|---|---|
+| XBAR offset | yes | duplicate |
+| MSVDD / NVVDD | yes | duplicate |
+| Propagation ratio (0.9/1.2) | likely no | **added** |
+| 127-point XBAR V/F read/write | likely no | **added** |
+| Open source / scriptable / AI-callable | no (GUI) | **added** |
+| Validated combo that avoids MSVDD inversion | manual trial | **added** |
 
 ## What was done
 
-- Reverse-engineered private Windows NvAPI IDs for XBAR/MSVDD, propagation
-  ratio, V/F points, and PERF limits.
-- Built a small CLI to read/write these controls.
+- Reverse-engineered private Windows NvAPI IDs for propagation ratio, V/F
+  points, and PERF limits (and XBAR/MSVDD as a scriptable alternative).
+- Built a small CLI + interactive wizard.
 - Tested with **mVolt+ v0.32** on an RTX 5090 / driver 610.62.
 - A/B tested the controls and found a stable configuration (see
   [TESTING.md](TESTING.md)).
