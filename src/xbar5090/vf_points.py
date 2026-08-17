@@ -136,6 +136,31 @@ def detect_xbar_bank(api: NvApi, info_id: int = VF_INFO, status_id: int = VF_STA
     # whose first record is XBAR type 0xD. No validated-layout shortcut is
     # used; the scan works from the live STATUS buffer.
     buf = get_status(api, active, status_id=status_id)
+    rec_base, rec_stride = _STATUS_LAYOUT or discover_status_layout(api, active, status_id=status_id)
+
+    # Primary generic detection: a 127-point contiguous window where every
+    # record is XBAR type 0xD and has a positive total frequency offset.
+    # This uniquely identifies the XBAR bank on the validated RTX 5090 and is
+    # intended to be generic across RTX 50-series cards.
+    if len(active) >= 127:
+        active_set = set(active)
+        for s in range(active[0], active[-1] - 126 + 1):
+            ok = True
+            for i in range(s, s + 127):
+                if i not in active_set:
+                    ok = False
+                    break
+                rec = rec_base + i * rec_stride
+                if get_u32(buf, rec) != 0xD:
+                    ok = False
+                    break
+                if i32(get_u32(buf, rec + 0x64)) <= 0:
+                    ok = False
+                    break
+            if ok:
+                return (s, s + 126)
+
+    # Fallback: look for a 127-point contiguous active range with type 0xD.
     ranges = []
     start = prev = active[0]
     for x in active[1:]:
@@ -145,7 +170,6 @@ def detect_xbar_bank(api: NvApi, info_id: int = VF_INFO, status_id: int = VF_STA
         prev = x
     ranges.append((start, prev))
 
-    rec_base, rec_stride = _STATUS_LAYOUT or discover_status_layout(api, active, status_id=status_id)
     candidates = []
     for s, e in ranges:
         if e - s + 1 == 127:
@@ -154,15 +178,7 @@ def detect_xbar_bank(api: NvApi, info_id: int = VF_INFO, status_id: int = VF_STA
                 candidates.append((s, e))
 
     if not candidates:
-        profile_bank = _profile_bank()
-        if profile_bank is not None:
-            return profile_bank
-        # Validated fallback for the exact GB202 648-active-flat layout.
-        # This is not a blanket assumption: it only triggers when the live
-        # active mask matches the known RTX 5090 layout.
-        if len(active) == 648 and active[0] == 0 and active[-1] == 647:
-            return (127, 253)
-        return None
+        return _profile_bank()
 
     for s, e in candidates:
         if s == 127:
