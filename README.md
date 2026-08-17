@@ -5,7 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/SHANAjam/rtx5090-xbar-control/actions/workflows/ci.yml/badge.svg)](https://github.com/SHANAjam/rtx5090-xbar-control/actions/workflows/ci.yml)
 
-**中文版**：[README.zh-CN.md](README.zh-CN.md) · **技术文档**：[English](docs/TECHNICAL_NOTES.md) / [中文](docs/TECHNICAL_NOTES.zh-CN.md)
+**中文版**：[README.zh-CN.md](README.zh-CN.md)
+
+**👨‍💻 Developers, jump straight to:** [Technical Notes (EN)](docs/TECHNICAL_NOTES.md) · [技术说明 (中文)](docs/TECHNICAL_NOTES.zh-CN.md)
 
 ---
 
@@ -110,7 +112,9 @@ VF     : start at +88 MHz (tune per card)
 ```
 
 - `VF +88 MHz` means adding an 88 MHz frequency offset to the selected XBAR V/F points.
+- **88 MHz is not a "conservative" value.** It was a starting point on the author's card.
 - Different cards / VBIOS / cooling may need different values.
+- If you want to be more conservative, start with **+44 MHz or 0 MHz**.
 - If unstable, lower XBAR first.
 
 ---

@@ -12,12 +12,13 @@
   - [3.3 V/F 点](#33-vf-点)
   - [3.4 PERF limits](#34-perf-limits)
   - [3.5 L2 稳定性测试](#35-l2-稳定性测试)
-- [4. 动态布局适配](#4-动态布局适配)
-- [5. 驱动验证矩阵](#5-驱动验证矩阵)
-- [6. 调试](#6-调试)
-- [7. 如何支持新驱动](#7-如何支持新驱动)
-- [8. 参考链接](#8-参考链接)
-- [9. 已知限制](#9-已知限制)
+- [4. 反汇编过程与产物](#4-反汇编过程与产物)
+- [5. 动态布局适配](#5-动态布局适配)
+- [6. 驱动验证矩阵](#6-驱动验证矩阵)
+- [7. 调试](#7-调试)
+- [8. 如何支持新驱动](#8-如何支持新驱动)
+- [9. 参考链接](#9-参考链接)
+- [10. 已知限制](#10-已知限制)
 
 ## 1. 项目结构
 
@@ -106,7 +107,37 @@ docs/
 - 使用 32 MiB 缓冲区随机 L2 读取 + 原子错误计数。
 - 集成命令：`l2-test`。
 
-## 4. 动态布局适配
+## 4. 反汇编过程与产物
+
+反汇编过程通过以下内容记录：
+
+- 静态表解析：`scripts/validate_nvapi_drivers.py`
+- 偏移推导：`scripts/derive_nvapi_offsets.py`
+- Capstone 反汇编工具：`scripts/disasm_nvapi.py`
+- 原始反汇编产物：[`docs/reverse/`](reverse/)
+
+关键步骤：
+
+1. 定位 NvAPI 静态 ID 表（`{u64 ptr, u32 id, u32 pad}`）。
+2. 解析 wrapper 与真实实现。
+3. 反汇编真实函数并识别版本检查。
+4. 将 buffer 写入映射到结构体字段。
+5. 跨 R572..R610 交叉验证。
+
+原始文件包括：
+
+```text
+docs/reverse/lookup_102f50_full_61088.txt
+docs/reverse/get_info_real_full_61088.txt
+docs/reverse/get_control_real_full_61088.txt
+docs/reverse/set_control_real_full_61088.txt
+docs/reverse/clk_get_61088.txt
+docs/reverse/vf_status_61088.txt
+docs/reverse/vf_get_61088.txt
+docs/reverse/rtx5090_gameready_direct_links.txt
+```
+
+## 5. 动态布局适配
 
 程序已不再依赖以下硬编码：
 
@@ -118,7 +149,7 @@ docs/
 
 剩余常量是 NvAPI 结构体字段偏移（如 `+0x114`、`+0x38`），属于 API 结构定义，已在 R572..R610 验证一致。
 
-## 5. 驱动验证矩阵
+## 6. 驱动验证矩阵
 
 已验证驱动版本（桌面 + 部分笔记本）：
 
@@ -140,7 +171,7 @@ docs/
 python scripts/run_full_validation.py
 ```
 
-## 6. 调试
+## 7. 调试
 
 ```powershell
 python run.py --verbose --log-file debug.log status
@@ -160,7 +191,7 @@ python run.py perf --json
 - **不要**使用 `--force-driver`。
 - 收集 `probe` 输出并反馈。
 
-## 7. 如何支持新驱动
+## 8. 如何支持新驱动
 
 1. 从驱动包获取 `nvapi64.dll` 或 `nvapi64_impl.dll`。
 2. 运行：
@@ -171,7 +202,7 @@ python run.py perf --json
 3. 全部通过后，把版本前缀加入 `driver_check.VALIDATED_DRIVER_PREFIXES`。
 4. 如果有失败项，需要重新逆向布局并更新本文档。
 
-## 8. 参考链接
+## 9. 参考链接
 
 - LACT issue #1147：https://github.com/ilya-zlobintsev/LACT/issues/1147
 - LACT PR #1158：https://github.com/ilya-zlobintsev/LACT/pull/1158
@@ -179,7 +210,7 @@ python run.py perf --json
 - NVIDIA/open-gpu-kernel-modules#1266：https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1266
 - mVolt+：https://github.com/b00nz/mVolt
 
-## 9. 已知限制
+## 10. 已知限制
 
 - 物理 MSVDD 直接读取未实现。
 - PERF limits SET 未暴露。

@@ -12,8 +12,13 @@
   - [3.3 V/F points](#33-vf-points)
   - [3.4 PERF limits](#34-perf-limits)
   - [3.5 L2 stability test](#35-l2-stability-test)
-- [4. Dynamic layout adaptation](#4-dynamic-layout-adaptation)
-- [5. Driver validation matrix](#5-driver-validation-matrix)
+- [4. Reverse engineering process and artifacts](#4-reverse-engineering-process-and-artifacts)
+- [5. Dynamic layout adaptation](#5-dynamic-layout-adaptation)
+- [6. Driver validation matrix](#6-driver-validation-matrix)
+- [7. Debugging](#7-debugging)
+- [8. Adding support for a new driver](#8-adding-support-for-a-new-driver)
+- [9. References](#9-references)
+- [10. Known limitations](#10-known-limitations)
 - [6. Debugging](#6-debugging)
 - [7. Adding support for a new driver](#7-adding-support-for-a-new-driver)
 - [8. References](#8-references)
@@ -106,7 +111,37 @@ docs/
 - Uses random L2 reads over a 32 MiB buffer and atomic mismatch counting.
 - Integrated as `l2-test`.
 
-## 4. Dynamic layout adaptation
+## 4. Reverse engineering process and artifacts
+
+The disassembly process is documented through:
+
+- Static table parsing (`scripts/validate_nvapi_drivers.py`)
+- Offset derivation (`scripts/derive_nvapi_offsets.py`)
+- Capstone disassembly tool (`scripts/disasm_nvapi.py`)
+- Raw disassembly artifacts in [`docs/reverse/`](reverse/)
+
+The key steps were:
+
+1. Locate the NvAPI static ID table (`{u64 ptr, u32 id, u32 pad}`).
+2. Resolve wrapper stubs and real implementations.
+3. Disassemble the real functions and identify version checks.
+4. Map buffer writes to structure fields.
+5. Cross-validate across R572..R610.
+
+Raw files include:
+
+```text
+docs/reverse/lookup_102f50_full_61088.txt
+docs/reverse/get_info_real_full_61088.txt
+docs/reverse/get_control_real_full_61088.txt
+docs/reverse/set_control_real_full_61088.txt
+docs/reverse/clk_get_61088.txt
+docs/reverse/vf_status_61088.txt
+docs/reverse/vf_get_61088.txt
+docs/reverse/rtx5090_gameready_direct_links.txt
+```
+
+## 5. Dynamic layout adaptation
 
 The program no longer relies on per-card hardcoded layout for:
 
@@ -118,7 +153,7 @@ The program no longer relies on per-card hardcoded layout for:
 
 Remaining constants are NvAPI structure field offsets (e.g. `+0x114`, `+0x38`). They are API-structure-level and were verified across R572..R610.
 
-## 5. Driver validation matrix
+## 6. Driver validation matrix
 
 Validated driver versions (desktop and selected notebook):
 
@@ -140,7 +175,7 @@ Scripts:
 python scripts/run_full_validation.py
 ```
 
-## 6. Debugging
+## 7. Debugging
 
 ```powershell
 python run.py --verbose --log-file debug.log status
@@ -160,7 +195,7 @@ If `probe` fails:
 - Do **not** use `--force-driver`.
 - Collect `probe` output and report it.
 
-## 7. Adding support for a new driver
+## 8. Adding support for a new driver
 
 1. Obtain `nvapi64.dll` or `nvapi64_impl.dll` from the driver package.
 2. Run:
@@ -171,7 +206,7 @@ If `probe` fails:
 3. If all checks pass, add the version prefix to `driver_check.VALIDATED_DRIVER_PREFIXES`.
 4. If a check fails, reverse-engineer the new layout and update this document.
 
-## 8. References
+## 9. References
 
 - LACT issue #1147: https://github.com/ilya-zlobintsev/LACT/issues/1147
 - LACT PR #1158: https://github.com/ilya-zlobintsev/LACT/pull/1158
@@ -179,7 +214,7 @@ If `probe` fails:
 - NVIDIA/open-gpu-kernel-modules#1266: https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1266
 - mVolt+: https://github.com/b00nz/mVolt
 
-## 9. Known limitations
+## 10. Known limitations
 
 - Physical MSVDD direct read is not implemented.
 - PERF limits SET is not exposed.

@@ -5,7 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/SHANAjam/rtx5090-xbar-control/actions/workflows/ci.yml/badge.svg)](https://github.com/SHANAjam/rtx5090-xbar-control/actions/workflows/ci.yml)
 
-**English**：[README.md](README.md) · **技术文档**：[English](docs/TECHNICAL_NOTES.md) / [中文](docs/TECHNICAL_NOTES.zh-CN.md)
+**English**：[README.md](README.md)
+
+**👨‍💻 开发者直达：** [技术说明 (中文)](docs/TECHNICAL_NOTES.zh-CN.md) · [Technical Notes (EN)](docs/TECHNICAL_NOTES.md)
 
 ---
 
@@ -110,7 +112,9 @@ VF     ：从 +88 MHz 开始试（每张卡单独调）
 ```
 
 - `VF +88 MHz` 表示给选中的 XBAR V/F 点额外加 88 MHz 频率偏移。
+- **88 MHz 不是“保守值”**，只是作者机器上的起点。
 - 不同显卡 / VBIOS / 散热需要不同值。
+- 想更保守可以从 **+44 MHz 或 0 MHz** 开始。
 - 不稳定就先降低 XBAR。
 
 ---
