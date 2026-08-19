@@ -221,6 +221,39 @@ def raw_noop_pstates_set(api: NvApi) -> dict:
     return {"rc": rc, "same": same, "version": _u32(after, _OFF_VERSION)}
 
 
+# --- V3 raw helpers (Blackwell Pstates20 layout) ---
+
+_PSTATE20_VERSION_V3 = ctypes.sizeof(Pstates20Info) | (3 << 16)
+
+
+def read_pstate20_v3_raw(api: NvApi) -> bytes:
+    info = call_pstates_get(api)
+    return bytes(info)
+
+
+def write_pstate20_v3_raw(api: NvApi, data: bytes) -> int:
+    fn = api._fn(PSTATES20_SET)
+    if not fn:
+        raise RuntimeError(f"Pstates20 SET missing: {PSTATES20_SET:#x}")
+    func = ctypes.cast(fn, ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p))
+    buf = (ctypes.c_ubyte * _PSTATE20_BUF_SIZE)()
+    ctypes.memmove(buf, data, min(len(data), _PSTATE20_BUF_SIZE))
+    return func(api.gpu, ctypes.byref(buf))
+
+
+def v3_noop_pstates_set(api: NvApi) -> dict:
+    """Minimal V3 SET with the current V3 buffer unchanged (no-op test)."""
+    current = read_pstate20_v3_raw(api)
+    buf = bytearray(current)
+    _set_u32(buf, _OFF_VERSION, _PSTATE20_VERSION_V3)
+    _set_u32(buf, _OFF_EDITABLE, 1)
+    _set_u32(buf, _OFF_NUM_PSTATES, 1)
+    rc = write_pstate20_v3_raw(api, bytes(buf))
+    after = read_pstate20_v3_raw(api)
+    same = bytes(buf) == after
+    return {"rc": rc, "same": same, "version": _u32(after, _OFF_VERSION)}
+
+
 def set_pstate20_limits(
     api: NvApi,
     core_max_khz: int | None = None,

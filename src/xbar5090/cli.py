@@ -305,6 +305,17 @@ def cmd_pstate_raw_noop(args, api: NvApi) -> int:
     return 0 if result["rc"] == 0 and result["same"] else 1
 
 
+def cmd_pstate_v3_noop(args, api: NvApi) -> int:
+    """Minimal V3 Pstates20 SET no-op test (Blackwell layout)."""
+    try:
+        result = pstates.v3_noop_pstates_set(api)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    print(f"Pstates20 V3 SET no-op rc={result['rc']} readback_same={result['same']}")
+    return 0 if result["rc"] == 0 and result["same"] else 1
+
+
 def cmd_pstate_unlock(args, api: NvApi) -> int:
     """Write P0 core/memory max or delta through PState20 V2 raw SET."""
     if not getattr(args, "yes", False):
@@ -1124,6 +1135,8 @@ def main(argv=None) -> int:
     p_pstate_noop.set_defaults(func=cmd_pstate_noop)
     p_pstate_raw_noop = sub.add_parser("pstate-raw-noop", help="minimal V2 Pstates20 SET no-op test (raw buffer)")
     p_pstate_raw_noop.set_defaults(func=cmd_pstate_raw_noop)
+    p_pstate_v3_noop = sub.add_parser("pstate-v3-noop", help="minimal V3 Pstates20 SET no-op test (Blackwell)")
+    p_pstate_v3_noop.set_defaults(func=cmd_pstate_v3_noop)
     p_pstate_unlock = sub.add_parser("pstate-unlock", help="write P0 core/memory max or delta via PState20 V2 raw SET")
     p_pstate_unlock.add_argument("--core-max-khz", type=int, default=None, help="new P0 graphics max in kHz")
     p_pstate_unlock.add_argument("--mem-max-khz", type=int, default=None, help="new P0 memory max in kHz")
