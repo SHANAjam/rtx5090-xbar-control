@@ -37,11 +37,12 @@ def _get_new_nvlddmkm(start_local_str: str) -> list[str]:
         return ["<event query failed: %s>" % e]
 
 
-def _run_round(mode: str, blocks: int, threads: int, stress_iters: int) -> dict:
+def _run_round(mode: str, blocks: int, threads: int, stress_iters: int, mb: int = 32) -> dict:
     exe = _checker_path()
     if not os.path.exists(exe):
         return {"error": f"L2 checker not found: {exe}"}
-    cmd = [exe, "--blocks", str(blocks), "--threads", str(threads), "--rounds", "1", "--mode", mode]
+    cmd = [exe, "--blocks", str(blocks), "--threads", str(threads), "--rounds", "1",
+           "--mode", mode, "--mb", str(mb)]
     if mode == "load":
         cmd += ["--stress-iters", str(stress_iters)]
     try:
@@ -53,6 +54,31 @@ def _run_round(mode: str, blocks: int, threads: int, stress_iters: int) -> dict:
     if p.returncode != 0 or not m:
         return {"error": (p.stderr or p.stdout or "").strip(), "returncode": p.returncode}
     return {"errors": int(m.group(1)), "elapsed_ms": float(m.group(2))}
+
+
+def _diagnose_cuda() -> None:
+    """Print CUDA/driver/memory diagnostics that help explain checker failures."""
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,driver_version,memory.total,memory.used",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            print("nvidia-smi:", r.stdout.strip())
+        else:
+            print("nvidia-smi: unavailable", file=sys.stderr)
+    except Exception as e:
+        print(f"nvidia-smi: unavailable ({e})", file=sys.stderr)
+
+
+def _auto_select_mb(stress_iters: int) -> int | None:
+    """Find the largest checker buffer that can be allocated on this system."""
+    for mb in (32, 16, 8, 4, 2):
+        row = _run_round("idle", 1, 1, stress_iters, mb=mb)
+        if "error" not in row:
+            return mb
+    return None
 
 
 def _gpu_blocks() -> int:
@@ -98,19 +124,30 @@ def _gpu_blocks() -> int:
 
 def run_l2_test(blocks: int | None = None, threads: int = 256,
                 stress_iters: int = 100000,
-                idle_rounds: int = 3, load_rounds: int = 3) -> bool:
+                idle_rounds: int = 3, load_rounds: int = 3,
+                mb: int | None = None) -> bool:
     """Run the L2 integrity test. Returns True only if all rounds pass."""
     if blocks is None:
         blocks = _gpu_blocks()
     print("=== XBAR L2 stability test ===")
     print("Using checker:", _checker_path())
     print(f"Using blocks={blocks} threads={threads} (auto-selected if not specified)")
+    if mb is None:
+        mb = _auto_select_mb(stress_iters)
+        if mb is None:
+            print("ERROR: could not allocate even a 2 MiB CUDA buffer.", file=sys.stderr)
+            _diagnose_cuda()
+            print("RESULT: FAIL")
+            return False
+        print(f"Auto-selected checker buffer: {mb} MiB")
+    else:
+        print(f"Using checker buffer: {mb} MiB")
     start_local = time.strftime("%Y-%m-%dT%H:%M:%S")
     all_ok = True
     errors_total = 0
     for mode, rounds in (("idle", idle_rounds), ("load", load_rounds)):
         for i in range(rounds):
-            row = _run_round(mode, blocks, threads, stress_iters)
+            row = _run_round(mode, blocks, threads, stress_iters, mb=mb)
             if "error" in row:
                 print(f"  round {i+1} {mode}: ERROR {row['error']}")
                 all_ok = False
@@ -126,5 +163,7 @@ def run_l2_test(blocks: int | None = None, threads: int = 256,
     if new_events:
         all_ok = False
     print("Total L2 errors:", errors_total)
+    if not all_ok:
+        _diagnose_cuda()
     print("RESULT:", "PASS" if all_ok else "FAIL")
     return all_ok
