@@ -11,6 +11,19 @@
 
 ---
 
+## Hall of Fame
+
+**3DMark Time Spy Extreme Graphics 分数：30,331**  
+排名：**单卡第 86 名 / 全部第 95 名**  
+显卡：NVIDIA GeForce RTX 5090 32 GB · CPU：AMD Ryzen 9 9950X3D2  
+结果页：[spy/65251803](http://www.3dmark.com/spy/65251803)
+
+![3DMark Time Spy Extreme Graphics Hall of Fame](./docs/images/hall-of-fame-main.png)
+
+*更多截图：[1](./docs/images/hall-of-fame-1.png) · [2](./docs/images/hall-of-fame-2.png) · [3](./docs/images/hall-of-fame-3.png)*
+
+---
+
 ## 目录
 
 - [这是什么？](#这是什么)
@@ -93,6 +106,7 @@ python run.py set-xbar --freq-khz 200000 --msvdd-uv 0 --yes
 python run.py set-ratio --ratio 1.2 --yes
 python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --yes
 python run.py l2-test
+python run.py l2-test --mb 8   # 如果默认 32 MiB 的 L2 缓冲区分配失败时使用更小缓冲区
 python run.py profile-save myprofile
 python run.py profile-apply myprofile --yes
 ```
