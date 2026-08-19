@@ -11,6 +11,12 @@
 
 ---
 
+## Hall of Fame
+
+> 3DMark Time Spy Extreme Graphics — 截图待补充。
+
+---
+
 ## 目录
 
 - [这是什么？](#这是什么)

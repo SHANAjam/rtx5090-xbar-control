@@ -11,6 +11,12 @@
 
 ---
 
+## Hall of Fame
+
+> 3DMark Time Spy Extreme Graphics — screenshot pending.
+
+---
+
 ## Table of Contents
 
 - [What is this?](#what-is-this)
