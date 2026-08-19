@@ -49,6 +49,29 @@ Therefore we cannot copy the VRAM-unlock implementation directly into xbar5090.
 - HYDRA Pro is paid; reverse-engineering its behavior for compatibility may
   raise legal/ToS questions. Independent probing of the NVIDIA driver is safer.
 
+## Download / payment (as of 2026-08)
+
+- Official update feed: <https://github.com/1usmus/HYDRA_UPDATE>
+- Official discussion/payment thread is the Overclock.net "Official HYDRA (and
+  HYDRA PRO) Thread"; the exact price/subscription method is behind the forum
+  and was not scrapeable from this environment (WAF/Cloudflare).
+- Public coverage states the RTX 50 VRAM/power unlock is in the **paid Pro**
+  tier; there is no open-source implementation in the GitHub update repo.
+
+## Feasibility for xbar5090
+
+- XBAR was cracked because the private NvAPI/RM control for clock domains is
+  exposed and reversible. A 36 Gbps memory unlock would need the same class of
+  private control for the **memory clock/PLL limit** and/or **power-limit SET**.
+- Current `perf_limits` module is read-only; the validated Windows driver did
+  not expose the PERF SET command.
+- A quick read-only dump of `clk_domains` on the author's RTX 5090 shows only
+  the XBAR domain entry nonzero; the memory clock limit is not visible through
+  the same simple offset path, so additional reverse engineering is required.
+- Conclusion: technically the same methodology could be attempted, but it is a
+  separate reverse-engineering project with higher risk. Do not expect a quick
+  merge from HYDRA; it is closed-source and paid.
+
 ## Suggested next step
 
 - Run HYDRA on the same system and capture which NvAPI/RM functions it calls
