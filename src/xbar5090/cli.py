@@ -227,6 +227,30 @@ def cmd_status(args, api: NvApi) -> int:
     return 0
 
 
+def cmd_measure(args, api: NvApi) -> int:
+    """Read-only physical clock measurement for GPC/XBAR/SYS/Memory domains."""
+    domains = [
+        ("GPC", clk_domains.GPC_MEASURE_MASK),
+        ("XBAR", clk_domains.XBAR_MEASURE_MASK),
+        ("SYS", clk_domains.SYS_MEASURE_MASK),
+        ("Memory", clk_domains.MEMORY_MEASURE_MASK),
+    ]
+    out = {}
+    for name, mask in domains:
+        try:
+            khz = clk_domains.measure_freq_khz(api, mask)
+            out[name] = khz
+            if not getattr(args, "json", False):
+                print(f"{name:6s}: {khz/1000:.0f} MHz")
+        except Exception as e:
+            out[name] = None
+            if not getattr(args, "json", False):
+                print(f"{name:6s}: unavailable ({e})", file=sys.stderr)
+    if getattr(args, "json", False):
+        print(json.dumps(out, indent=2))
+    return 0
+
+
 def cmd_set_xbar(args, api: NvApi) -> int:
     if not is_admin():
         print("ERROR: set-xbar requires administrator.", file=sys.stderr)
@@ -1014,6 +1038,9 @@ def main(argv=None) -> int:
     p_status = sub.add_parser("status")
     p_status.add_argument("--json", action="store_true", help="output JSON")
     p_status.set_defaults(func=cmd_status)
+    p_measure = sub.add_parser("measure", help="read physical GPC/XBAR/SYS/Memory clocks (read-only)")
+    p_measure.add_argument("--json", action="store_true", help="output JSON")
+    p_measure.set_defaults(func=cmd_measure)
     p_x = sub.add_parser("set-xbar", parents=[write_common])
     p_x.add_argument("--freq-khz", type=int, required=True)
     p_x.add_argument("--msvdd-uv", type=int, default=0)

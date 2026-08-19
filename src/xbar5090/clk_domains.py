@@ -109,18 +109,31 @@ CLK_MEASURE_FREQ = 0x527FC458
 CLK_MEASURE_VER = 0x1000C
 CLK_MEASURE_MASK_OFF = 0x4
 CLK_MEASURE_FREQ_OFF = 0x8
+GPC_MEASURE_MASK = 0x1
 XBAR_MEASURE_MASK = 0x2
+SYS_MEASURE_MASK = 0x4
+MEMORY_MEASURE_MASK = 0x10
 
 
-def measure_xbar_khz(api: NvApi) -> int:
-    """Read the physical XBAR clock in kHz via CLK_MEASURE_FREQ."""
+def measure_freq_khz(api: NvApi, mask: int) -> int:
+    """Read a physical clock domain in kHz via CLK_MEASURE_FREQ.
+
+    The one-hot mask follows the RM clock-domain layout used on Blackwell:
+      GPC=0x1, XBAR=0x2, SYS=0x4, Memory=0x10.
+    This is a read-only operation.
+    """
     buf = make_buffer(CLK_MEASURE_VER)
     set_u32(buf, 0, CLK_MEASURE_VER)
-    set_u32(buf, CLK_MEASURE_MASK_OFF, XBAR_MEASURE_MASK)
+    set_u32(buf, CLK_MEASURE_MASK_OFF, mask)
     rc = api.call(CLK_MEASURE_FREQ, buf)
     if rc != 0:
         raise RuntimeError(f"CLK_MEASURE_FREQ failed rc={rc}")
     return get_u32(buf, CLK_MEASURE_FREQ_OFF)
+
+
+def measure_xbar_khz(api: NvApi) -> int:
+    """Read the physical XBAR clock in kHz via CLK_MEASURE_FREQ."""
+    return measure_freq_khz(api, XBAR_MEASURE_MASK)
 
 
 def read_clock_domains(api: NvApi, get_id: int | None = None):
