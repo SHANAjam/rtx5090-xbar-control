@@ -58,6 +58,54 @@ Therefore we cannot copy the VRAM-unlock implementation directly into xbar5090.
 - Public coverage states the RTX 50 VRAM/power unlock is in the **paid Pro**
   tier; there is no open-source implementation in the GitHub update repo.
 
+## How people reached 36 Gbps before Hydra
+
+- **MSI Afterburner patched database**: Unwinder provided a modified
+  `MSIAfterburner.dat` for Afterburner 4.6.6 Beta 5 that extends the memory
+  overclock range by +3000 MHz, allowing GDDR7 up to 36 Gbps.
+  - https://www.kitguru.net/components/graphic-cards/joao-silva/msi-afterburner-bypass-allows-you-to-overclock-gddr7-memory-on-rtx-50-gpus/
+- **High-end VBIOS cross-flash**: cards such as ASUS ROG Matrix / MSI
+  Lightning / Galax HOF ship with higher memory/power limits. Flashing those
+  VBIOS onto other 5090s can unlock higher memory clocks, but requires
+  compatible PCB/fan topology and voids warranty.
+
+## ASUS ROG Astral black-air + Matrix vBIOS situation
+
+- Matrix 800W vBIOS can be cross-flashed to ROG Astral, but the **black Astral**
+  has a fan-control conflict: the fourth rear fan shares the same control line
+  as the front-center fan. White Astral has a separate header.
+- To run Matrix vBIOS on black Astral, a hardware mod is required: change the
+  pull-down resistor to pull-up on the EEPROM `SI` signal pin on the PCB.
+- Source: https://diy.zol.com.cn/1126/11266586.html
+- If you cannot do that hardware mod, the safer paths are:
+  1. Stay on Astral 800W VBIOS and raise core offset/voltage curve with
+     Afterburner / GPU Tweak III.
+  2. Use Hydra Pro if available (software-level power/memory unlock).
+  3. Do not flash incompatible VBIOS; risk of fan failure / brick.
+
+## Concrete clues for a possible self-implemented 36 Gbps unlock
+
+From LACT issue #1159 (Linux, RTX 5090 / driver 610.57.04):
+
+- Offset-capable clock domains include:
+  - GPC domain 0
+  - XBAR domain 1
+  - SYS domain 2
+  - **memory domain 4**, offset range **-1000..+5000 MHz**
+- `CLK_MEASURE_FREQ` (`0x20809006`, 8 bytes) can measure physical MCLK.
+- PERF limits V2 strict ranges:
+  - memory max/min: `0x75` / `0x78`
+  - RM GET: `0x2080a079`
+  - RM SET: `0x2080e0af`
+- Source: https://github.com/ilya-zlobintsev/LACT/issues/1159
+
+This suggests a path:
+1. Find the Windows NvAPI IDs corresponding to `CLK_DOMAINS_GET_INFO`,
+   `CLK_DOMAINS_SET_CONTROL` for domain 4, and `PERF_GET/SET`.
+2. Read-only probe domain 4 offsets and memory max/min.
+3. If readback is stable, add a safe SET with backup/readback, then validate
+   with L2/stability tests.
+
 ## Feasibility for xbar5090
 
 - XBAR was cracked because the private NvAPI/RM control for clock domains is
