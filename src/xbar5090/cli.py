@@ -16,6 +16,7 @@ from . import perf_limits
 from . import probe
 from . import crack
 from . import l2test
+from . import pstates
 from .nvapi import NvApi, bytes_to_buf, buf_to_bytes, get_u32, i32, is_admin
 
 if getattr(sys, "frozen", False):
@@ -249,6 +250,81 @@ def cmd_measure(args, api: NvApi) -> int:
     if getattr(args, "json", False):
         print(json.dumps(out, indent=2))
     return 0
+
+
+def cmd_pstate(args, api: NvApi) -> int:
+    """Read-only NvAPI Pstates20 dump (P0 ranges, memory max, clock entries)."""
+    try:
+        data = pstates.read_pstates(api)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    if getattr(args, "json", False):
+        related = pstates.probe_related_ids(api)
+        data["related_ids"] = related
+        print(json.dumps(data, indent=2))
+        return 0
+    print(f"Pstates20 version : {data['version']:#x}")
+    print(f"numPstates        : {data['numPstates']}")
+    print(f"numClocks         : {data['numClocks']}")
+    print(f"GPU curve offset  : {data['gpuCurveOffsetMinKHz']/1000:+.0f} .. {data['gpuCurveOffsetMaxKHz']/1000:+.0f} MHz")
+    print(f"P0 offset range   : {data['p0OffsetMinKHz']/1000:+.0f} .. {data['p0OffsetMaxKHz']/1000:+.0f} MHz")
+    print(f"Memory max        : {data['memoryMaxKHz']/1000:.0f} MHz ({data['memoryMaxKHz']/1_000_000:.3f} GHz)")
+    related = pstates.probe_related_ids(api)
+    for name, found in related.items():
+        print(f"{name:24s}: {'FOUND' if found else 'missing'}")
+    for ps in data["pstates"]:
+        print(f"\nP-state {ps['pstateId']} (editable={ps['editable']}):")
+        for clk in ps["clocks"]:
+            print(f"  domain={clk['domainId']} type={clk['typeId']} editable={clk['editable']} "
+                  f"delta={clk['freqDeltaKHz']/1000:+.0f} MHz "
+                  f"deltaRange={clk['freqDeltaMinKHz']/1000:+.0f}..{clk['freqDeltaMaxKHz']/1000:+.0f} MHz "
+                  f"max={clk['maxFreqKHz']/1000:.0f} MHz")
+    return 0
+
+
+def cmd_pstate_noop(args, api: NvApi) -> int:
+    """Submit the current Pstates20 buffer back unchanged (no-op SET test)."""
+    try:
+        result = pstates.noop_pstates_set(api)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    print(f"Pstates20 SET no-op rc={result['rc']} readback_same={result['same']}")
+    return 0 if result["rc"] == 0 and result["same"] else 1
+
+
+def cmd_pstate_raw_noop(args, api: NvApi) -> int:
+    """Minimal V2 Pstates20 SET no-op test (raw buffer, unchanged P0)."""
+    try:
+        result = pstates.raw_noop_pstates_set(api)
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    print(f"Pstates20 raw V2 SET no-op rc={result['rc']} readback_same={result['same']}")
+    return 0 if result["rc"] == 0 and result["same"] else 1
+
+
+def cmd_pstate_unlock(args, api: NvApi) -> int:
+    """Write P0 core/memory max or delta through PState20 V2 raw SET."""
+    if not getattr(args, "yes", False):
+        print("ERROR: pstate-unlock modifies live P-state limits; add --yes to proceed.", file=sys.stderr)
+        return 2
+    try:
+        result = pstates.set_pstate20_limits(
+            api,
+            core_max_khz=args.core_max_khz,
+            mem_max_khz=args.mem_max_khz,
+            core_delta_khz=args.core_delta_khz,
+            mem_delta_khz=args.mem_delta_khz,
+        )
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    print(f"Pstates20 SET rc={result['rc']}")
+    print(f"  core delta: {result['core_delta_khz']/1000:+.0f} MHz  max: {result['core_max_khz']/1000:.0f} MHz")
+    print(f"  mem  delta: {result['mem_delta_khz']/1000:+.0f} MHz  max: {result['mem_max_khz']/1000:.0f} MHz")
+    return 0 if result["rc"] == 0 else 1
 
 
 def cmd_set_xbar(args, api: NvApi) -> int:
@@ -1041,6 +1117,20 @@ def main(argv=None) -> int:
     p_measure = sub.add_parser("measure", help="read physical GPC/XBAR/SYS/Memory clocks (read-only)")
     p_measure.add_argument("--json", action="store_true", help="output JSON")
     p_measure.set_defaults(func=cmd_measure)
+    p_pstate = sub.add_parser("pstate", help="read NvAPI Pstates20 (P0 ranges, memory max, read-only)")
+    p_pstate.add_argument("--json", action="store_true", help="output JSON")
+    p_pstate.set_defaults(func=cmd_pstate)
+    p_pstate_noop = sub.add_parser("pstate-noop", help="no-op Pstates20 SET test (writes current buffer back unchanged)")
+    p_pstate_noop.set_defaults(func=cmd_pstate_noop)
+    p_pstate_raw_noop = sub.add_parser("pstate-raw-noop", help="minimal V2 Pstates20 SET no-op test (raw buffer)")
+    p_pstate_raw_noop.set_defaults(func=cmd_pstate_raw_noop)
+    p_pstate_unlock = sub.add_parser("pstate-unlock", help="write P0 core/memory max or delta via PState20 V2 raw SET")
+    p_pstate_unlock.add_argument("--core-max-khz", type=int, default=None, help="new P0 graphics max in kHz")
+    p_pstate_unlock.add_argument("--mem-max-khz", type=int, default=None, help="new P0 memory max in kHz")
+    p_pstate_unlock.add_argument("--core-delta-khz", type=int, default=0, help="P0 graphics delta in kHz")
+    p_pstate_unlock.add_argument("--mem-delta-khz", type=int, default=0, help="P0 memory delta in kHz")
+    p_pstate_unlock.add_argument("--yes", action="store_true", help="confirm live P-state write")
+    p_pstate_unlock.set_defaults(func=cmd_pstate_unlock)
     p_x = sub.add_parser("set-xbar", parents=[write_common])
     p_x.add_argument("--freq-khz", type=int, required=True)
     p_x.add_argument("--msvdd-uv", type=int, default=0)
