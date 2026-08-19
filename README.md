@@ -11,6 +11,19 @@
 
 ---
 
+## Hall of Fame
+
+**3DMark Time Spy Extreme Graphics Score: 30,331**  
+Rank: **#86 (single GPU)** / **#95 (all)**  
+GPU: NVIDIA GeForce RTX 5090 32 GB · CPU: AMD Ryzen 9 9950X3D2  
+Result: [spy/65251803](http://www.3dmark.com/spy/65251803)
+
+![3DMark Time Spy Extreme Graphics Hall of Fame](./docs/images/hall-of-fame-main.png)
+
+*Additional screenshots: [1](./docs/images/hall-of-fame-1.png) · [2](./docs/images/hall-of-fame-2.png) · [3](./docs/images/hall-of-fame-3.png)*
+
+---
+
 ## Table of Contents
 
 - [What is this?](#what-is-this)
@@ -93,6 +106,7 @@ python run.py set-xbar --freq-khz 200000 --msvdd-uv 0 --yes
 python run.py set-ratio --ratio 1.2 --yes
 python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --yes
 python run.py l2-test
+python run.py l2-test --mb 8   # if the default 32 MiB checker buffer cannot be allocated
 python run.py profile-save myprofile
 python run.py profile-apply myprofile --yes
 ```
