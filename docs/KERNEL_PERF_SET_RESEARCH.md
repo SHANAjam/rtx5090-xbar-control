@@ -99,7 +99,30 @@ Possible ways such a transport could exist:
 2. A direct kernel driver interface / IOCTL.
 3. A signed third-party driver that reuses the RM call path.
 
-## 4. Safety boundary
+## 4. Generic RM call target
+
+The generic RM wrapper at `0x140157af5` calls through a function pointer stored
+at `.rdata:0xe07ab8`, which resolves to `0x140cf1380`.
+
+At `0x140cf1380` the code is a runtime thunk:
+
+```asm
+jmp rax
+```
+
+This means the actual RM transport is installed dynamically (likely patched at
+driver load). It is not a simple static user-mode callable function.
+
+## 5. User-mode to kernel gap
+
+- `nvapi64.dll` and `nvapi64_impl.dll` do **not** import `DeviceIoControl` /
+  `NtDeviceIoControlFile` in the analyzed driver branch.
+- The user-mode PERF GET path therefore does not use an obvious standard IOCTL
+  that we can trivially reuse for PERF SET.
+- The PERF SET handler exists in `nvlddmkm.sys`, but no user-mode NvAPI entry
+  point for it was found.
+
+## 6. Safety boundary
 
 - Writing to the kernel RM path requires either a custom kernel driver or an
   existing privileged interface.
