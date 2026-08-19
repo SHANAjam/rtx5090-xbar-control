@@ -13,7 +13,10 @@
 
 ## Hall of Fame
 
-> 3DMark Time Spy Extreme Graphics — screenshot pending.
+**3DMark Time Spy Extreme Graphics Score: 30,331**  
+Rank: **#86 (single GPU)** / **#95 (all)**  
+GPU: NVIDIA GeForce RTX 5090 32 GB · CPU: AMD Ryzen 9 9950X3D2  
+Result: [spy/65251803](http://www.3dmark.com/spy/65251803)
 
 ---
 
