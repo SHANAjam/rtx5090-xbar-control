@@ -992,6 +992,7 @@ def cmd_l2_test(args, api: NvApi) -> int:
         stress_iters=getattr(args, "stress_iters", 100000),
         idle_rounds=getattr(args, "idle_rounds", 3),
         load_rounds=getattr(args, "load_rounds", 3),
+        mb=getattr(args, "mb", None),
     )
     return 0 if ok else 1
 
@@ -1050,6 +1051,8 @@ def main(argv=None) -> int:
     p_l2.add_argument("--stress-iters", type=int, default=100000)
     p_l2.add_argument("--idle-rounds", type=int, default=3)
     p_l2.add_argument("--load-rounds", type=int, default=3)
+    p_l2.add_argument("--mb", type=int, default=None,
+                      help="L2 checker buffer size in MiB (default: auto-select 32/16/8/4/2)")
     p_l2.set_defaults(func=cmd_l2_test)
     sub.add_parser("wizard", parents=[write_common], help="interactive setup with ranges and current values").set_defaults(func=cmd_wizard)
     sub.add_parser("reset", parents=[write_common], help="reset XBAR/MSVDD/ratio/VF to driver defaults").set_defaults(func=cmd_reset)

@@ -93,6 +93,7 @@ python run.py set-xbar --freq-khz 200000 --msvdd-uv 0 --yes
 python run.py set-ratio --ratio 1.2 --yes
 python run.py vfp-auto-range --msvdd-mv 1150 --freq-khz 88000 --yes
 python run.py l2-test
+python run.py l2-test --mb 8   # if the default 32 MiB checker buffer cannot be allocated
 python run.py profile-save myprofile
 python run.py profile-apply myprofile --yes
 ```

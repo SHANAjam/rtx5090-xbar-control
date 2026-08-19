@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.2] - 2026-08-19
+
+### Fixed
+- L2 stability test no longer fails with an opaque `CUDA error: cudaMalloc data: (null)` after switching Windows systems.
+- Rebuilt `xbar_l2_check.exe` with a maintainable host wrapper:
+  - prints numeric CUDA error codes,
+  - supports a configurable checker buffer size (`--mb`),
+  - auto-falls back from 32 MiB to 16/8/4/2 MiB when the GPU/driver cannot allocate the default buffer,
+  - adds `nvidia-smi` diagnostics on failure.
+- Added `l2-test --mb` CLI option.
+
 ## [0.2.1] - 2026-08-17
 
 ### Added
