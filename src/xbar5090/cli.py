@@ -328,13 +328,15 @@ def cmd_pstate_unlock(args, api: NvApi) -> int:
             mem_max_khz=args.mem_max_khz,
             core_delta_khz=args.core_delta_khz,
             mem_delta_khz=args.mem_delta_khz,
+            core_base_khz=args.core_base_khz,
+            mem_base_khz=args.mem_base_khz,
         )
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
     print(f"Pstates20 SET rc={result['rc']}")
-    print(f"  core delta: {result['core_delta_khz']/1000:+.0f} MHz  max: {result['core_max_khz']/1000:.0f} MHz")
-    print(f"  mem  delta: {result['mem_delta_khz']/1000:+.0f} MHz  max: {result['mem_max_khz']/1000:.0f} MHz")
+    print(f"  core delta: {result['core_delta_khz']/1000:+.0f} MHz  base: {result['core_base_khz']/1000:.0f} MHz  max: {result['core_max_khz']/1000:.0f} MHz")
+    print(f"  mem  delta: {result['mem_delta_khz']/1000:+.0f} MHz  base: {result['mem_base_khz']/1000:.0f} MHz  max: {result['mem_max_khz']/1000:.0f} MHz")
     return 0 if result["rc"] == 0 else 1
 
 
@@ -1142,6 +1144,8 @@ def main(argv=None) -> int:
     p_pstate_unlock.add_argument("--mem-max-khz", type=int, default=None, help="new P0 memory max in kHz")
     p_pstate_unlock.add_argument("--core-delta-khz", type=int, default=0, help="P0 graphics delta in kHz")
     p_pstate_unlock.add_argument("--mem-delta-khz", type=int, default=0, help="P0 memory delta in kHz")
+    p_pstate_unlock.add_argument("--core-base-khz", type=int, default=None, help="new P0 graphics base in kHz")
+    p_pstate_unlock.add_argument("--mem-base-khz", type=int, default=None, help="new P0 memory base in kHz")
     p_pstate_unlock.add_argument("--yes", action="store_true", help="confirm live P-state write")
     p_pstate_unlock.set_defaults(func=cmd_pstate_unlock)
     p_x = sub.add_parser("set-xbar", parents=[write_common])

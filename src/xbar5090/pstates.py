@@ -260,8 +260,10 @@ def set_pstate20_limits(
     mem_max_khz: int | None = None,
     core_delta_khz: int = 0,
     mem_delta_khz: int = 0,
+    core_base_khz: int | None = None,
+    mem_base_khz: int | None = None,
 ) -> dict:
-    """Write P0 clock limits/deltas through the raw PState20 V2 SET path.
+    """Write P0 clock limits/deltas/bases through the raw PState20 V2 SET path.
 
     Only P0 is submitted (numPstates=1), matching the empirically working
     gpu-auto-optimizer layout. This is a real write; use with care.
@@ -277,6 +279,11 @@ def set_pstate20_limits(
         _set_u32(buf, _P0_CORE_ENTRY + _CLOCK_MAXFREQ_OFFSET, core_max_khz)
     if mem_max_khz is not None:
         _set_u32(buf, _P0_MEM_ENTRY + _CLOCK_MAXFREQ_OFFSET, mem_max_khz)
+    # Base frequency is at +24 within a clock entry.
+    if core_base_khz is not None:
+        _set_u32(buf, _P0_CORE_ENTRY + 24, core_base_khz)
+    if mem_base_khz is not None:
+        _set_u32(buf, _P0_MEM_ENTRY + 24, mem_base_khz)
     rc = write_pstate20_raw(api, bytes(buf))
     after = read_pstate20_raw(api)
     return {
@@ -285,6 +292,8 @@ def set_pstate20_limits(
         "mem_delta_khz": _i32(after, _P0_MEM_ENTRY + _CLOCK_DELTA_OFFSET),
         "core_max_khz": _u32(after, _P0_CORE_ENTRY + _CLOCK_MAXFREQ_OFFSET),
         "mem_max_khz": _u32(after, _P0_MEM_ENTRY + _CLOCK_MAXFREQ_OFFSET),
+        "core_base_khz": _u32(after, _P0_CORE_ENTRY + 24),
+        "mem_base_khz": _u32(after, _P0_MEM_ENTRY + 24),
     }
 
 
