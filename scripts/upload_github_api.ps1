@@ -55,20 +55,20 @@ function Put-File([string]$path, [string]$localFile, [string]$commitMessage) {
     $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $localFile))
     $b64 = [Convert]::ToBase64String($bytes)
     $sha = Get-ContentSha $path
-    $args = @(
-        'api', '--method', 'PUT', "repos/$Repo/contents/$path",
-        '-f', "message=$commitMessage",
-        '-f', "content=$b64",
-        '-f', "branch=$Branch"
-    )
-    if ($sha) {
-        $args += @('-f', "sha=$sha")
+    $body = @{
+        message = $commitMessage
+        content = $b64
+        branch  = $Branch
     }
+    if ($sha) {
+        $body.sha = $sha
+    }
+    $json = $body | ConvertTo-Json -Compress
     if ($WhatIf) {
         Write-Host "[WhatIf] PUT $path (sha=$sha)"
         return
     }
-    gh @args *> $null
+    $json | gh api --method PUT "repos/$Repo/contents/$path" --input - *> $null
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to upload $path"
     }
