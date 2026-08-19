@@ -18,6 +18,10 @@
 显卡：NVIDIA GeForce RTX 5090 32 GB · CPU：AMD Ryzen 9 9950X3D2  
 结果页：[spy/65251803](http://www.3dmark.com/spy/65251803)
 
+![3DMark Time Spy Extreme Graphics Hall of Fame](./docs/images/hall-of-fame-main.png)
+
+*更多截图：[1](./docs/images/hall-of-fame-1.png) · [2](./docs/images/hall-of-fame-2.png) · [3](./docs/images/hall-of-fame-3.png)*
+
 ---
 
 ## 目录
