@@ -1,5 +1,8 @@
 # xbar5090
 
+> [!IMPORTANT]
+> **项目已归档 / 不再维护。** 开发已停止。后续 RTX 50 系调校请使用 [mVolt](https://github.com/b00nz/mVolt)。
+
 > Windows RTX 50 系 XBAR / MSVDD / 传播比例 / V/F 控制（基于私有 NvAPI）
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

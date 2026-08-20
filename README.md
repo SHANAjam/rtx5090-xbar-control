@@ -1,5 +1,8 @@
 # xbar5090
 
+> [!IMPORTANT]
+> **Project archived / no longer maintained.** Development has stopped. For ongoing RTX 50-series tuning, use [mVolt](https://github.com/b00nz/mVolt).
+
 > Windows RTX 50-series XBAR / MSVDD / Propagation Ratio / V/F control via private NvAPI
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
